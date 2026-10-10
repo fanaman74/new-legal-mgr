@@ -9,6 +9,28 @@ It is **not** a production legal platform and it does not give legal advice.
 > The AI must never become the source of truth. The evidence is the source of truth, and every
 > useful AI conclusion must lead back to it.
 
+## Quick start: no terminal needed
+
+1. Download or copy this folder to your computer.
+2. **Double-click the launcher**:
+   - Windows: `Start Legal Evidence Manager.bat`
+   - macOS: `Start Legal Evidence Manager.command` (the first time, right-click → Open to allow it)
+   - Linux: `start.sh`
+3. A setup window shows progress. On first use it:
+   - downloads a private copy of Node.js into this folder (`.runtime/`) if no recent Node.js
+     is installed. No admin rights are needed, and the download is checksum-verified against
+     nodejs.org;
+   - installs the application libraries (later runs reuse them and download only what is
+     missing or changed);
+   - checks the prerequisites and opens the app in your browser at `http://127.0.0.1:8787/`.
+4. In the app, click **Open evidence folder**, copy your evidence files (copies) into it, then
+   click **Import evidence**. Click **Check originals unchanged** at any time to verify that
+   no original was modified.
+
+Double-clicking again while the app is running just reopens the browser page; it never starts
+a second copy. Close the setup window to stop the app. To try the app with the fictional
+sample corpus, run the launcher with `--sample` (or `npm run start:sample`).
+
 ## Status
 
 | Milestone | State |
@@ -18,7 +40,8 @@ It is **not** a production legal platform and it does not give legal advice.
 | 2 Retrieval (hybrid lexical + semantic, filters, provenance) | planned |
 | 3 Grounded Q&A and citation verification | planned |
 | 4 Chronology, comparison, potentially-unaddressed evidence | planned |
-| 5 MCP server for Hermes, small local API/UI | planned |
+| 5 Local web app (corpus, import, originals check) and double-click launchers | ✅ first part done |
+| 5 MCP server for Hermes, search/ask/timeline/compare screens | planned |
 | 6 Gold-set evaluation | planned |
 
 ## Architecture in one paragraph
@@ -39,7 +62,7 @@ components).
   no system OCR install. Works on Windows, macOS and Linux.
 - About 400 MB of disk space for `node_modules` (OCR model included).
 
-## Setup
+## Setup from a terminal (developers)
 
 ```bash
 npm install
@@ -114,7 +137,7 @@ These are Milestones 2–6 and are **not implemented yet**. The plan is in
 [`docs/architecture.md`](docs/architecture.md) §6 and [`docs/evaluation.md`](docs/evaluation.md).
 In summary:
 
-- `npm run ask`, `npm run api` (a localhost-only web UI) and `npm run mcp` (a stdio MCP server
+- Search, Ask, Timeline and Compare screens in the local app; `npm run mcp` (a stdio MCP server
   with read-only `legal_*` tools: search, get passage, chronology, compare, verify citation).
 - Hermes will connect through `~/.hermes/config.yaml` → `mcp_servers`. An example will be
   provided in `docs/hermes-mcp-example.yaml`.
@@ -143,6 +166,8 @@ human review; RTF-only `.msg` bodies are not decoded.
 
 | Command | Purpose |
 | --- | --- |
+| `npm start` | Check prerequisites, start the app and open the browser (what the launchers run) |
+| `npm run start:sample` | The same, with the fictional sample corpus |
 | `npm install` | Install dependencies |
 | `npm test` | Unit + integration tests |
 | `npm run typecheck` | TypeScript type check |

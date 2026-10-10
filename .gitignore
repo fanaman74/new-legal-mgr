@@ -19,6 +19,9 @@ data/sample-data/
 logs/*
 !logs/.gitkeep
 
+# Private Node.js runtime downloaded by the launchers
+.runtime/
+
 # Tooling
 coverage/
 *.log

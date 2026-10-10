@@ -27,6 +27,20 @@ Sample run (synthetic corpus, 4-core cloud VM, OCR on): 13 originals → 15 evid
 (4 extracted attachments, 2 of them duplicates of known content), about 3 s including one
 OCR page.
 
+## Launchers and local app
+
+Verified on Linux, the same code path as the macOS launcher (Windows `.bat`/`.ps1` reviewed
+but not executed in this environment):
+
+| Check | Result |
+| --- | --- |
+| Fresh copy in a folder whose name contains a space: launcher installs libraries, passes prerequisites, starts the app | ✅ |
+| Second launch while running: reopens the existing instance (about 1 s), no second server | ✅ |
+| Private Node.js download: latest v24 LTS resolved, SHA-256 verified, archive layout as expected | ✅ (download steps run by hand) |
+| App on Node.js 24.21 (fresh `npm ci` with bundled npm 11) | ✅ |
+| Browser check (Chromium): import via button, corpus table, record detail with page-level chunks, originals check | ✅ |
+| API tests: import, corpus, record, original streaming (hash matches), Host/Origin/header protections | ✅ (automated) |
+
 ## Known limitations (Milestone 1)
 
 - **Layout**: pdfjs text order follows the PDF content stream. Multi-column layouts, complex

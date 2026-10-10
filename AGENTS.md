@@ -2,6 +2,21 @@
 
 Read `README.md` and `docs/architecture.md` first.
 
+## Project owner preference: no terminal
+
+The project owner does not want to use a terminal. Every user-facing workflow must be
+reachable from the double-click launchers (`Start Legal Evidence Manager.bat` / `.command` /
+`start.sh`) and the local browser app:
+
+- New features get a button or screen in the app (`src/app/`), not only a CLI command.
+  CLIs remain for developers and automation.
+- The launchers must keep working without prior setup: they check for Node.js (and download a
+  private, checksum-verified copy into `.runtime/` if needed), install or update libraries only
+  when needed (`scripts/ensure-deps.mjs`), check prerequisites (`src/app/prereqs.ts`), and
+  reopen an already-running instance instead of starting a second one.
+- Error messages shown to the user must say what to do in plain language.
+- When documenting, lead with the double-click route; terminal commands come second.
+
 ## Non-negotiable rules
 
 1. **Never write inside the originals directory** (`data/originals/` or `LEGAL_ORIGINALS_DIR`).
@@ -25,7 +40,8 @@ Read `README.md` and `docs/architecture.md` first.
   external/canonical model (`src/evidence/models.ts` is the source of truth; update
   `docs/evidence-schema.md` with it).
 - Cross-platform (Windows included): use `path.join`, store relative paths with forward
-  slashes, and keep every command an `npm run` script (no bash-only scripts, no Makefile).
+  slashes, and keep every command an `npm run` script (no Makefile). The only shell scripts are
+  the launchers; `.bat`/`.ps1` files must keep CRLF line endings (see `.gitattributes`).
 - Parsers return the format-neutral `ParseOutput` (`src/ingestion/parsers/types.ts`). Do not
   leak library types into domain code.
 - UK English in documentation and UI text.

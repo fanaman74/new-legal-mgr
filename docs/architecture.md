@@ -81,8 +81,15 @@ src/
     metadata.ts             format detection, date extraction, classification
     chunking.ts             structural chunking with exact offsets
     parsers/                pdf, ocr, docx, msg, eml, text, email-common, headings, types
+  app/
+    server.ts               local web app + JSON API (127.0.0.1 only)
+    prereqs.ts              prerequisite checks (launcher and app)
+    public/index.html       the browser interface (no external assets)
   testing/                  synthetic sample corpus + .msg writer (tests and demos only)
-scripts/                    CLI entry points (ingest, corpus, check-originals, correct, sample-corpus)
+scripts/                    CLI entry points (launch, ingest, corpus, check-originals, correct, sample-corpus)
+  ensure-deps.mjs           plain JS: Node version check + install/update libraries when needed
+  get-node.ps1              Windows: download a private, checksum-verified Node.js into .runtime/
+Start Legal Evidence Manager.bat / .command, start.sh   double-click launchers
 tests/unit, tests/integration
 ```
 
@@ -121,7 +128,35 @@ Properties → Read-only, or NTFS permissions; macOS/Linux: `chmod -R a-w`).
   page (PDF) or the whole document text. Units are saved in `<EVID>.structure.json`, so any
   citation can be checked mechanically.
 
-## 6. Planned milestones
+## 6. Launchers and local app
+
+The project owner does not want to use a terminal, so a double-click launcher is the main
+entry point:
+
+1. **Node.js**: use an installed Node ≥ 20.12. Otherwise download the current Node.js LTS
+   (v24) into `.runtime/node` inside the project. No installation and no admin rights are
+   needed, and the SHA-256 is verified against `SHASUMS256.txt` from nodejs.org.
+2. **Libraries** (`scripts/ensure-deps.mjs`): `npm ci` on a fresh folder. After that
+   `npm install` runs only when `package-lock.json` changes, so healthy packages are reused.
+   An install stamp in `node_modules` records the lockfile hash.
+3. **Prerequisites** (`src/app/prereqs.ts`): Node version, libraries loadable, native canvas,
+   OCR model, folder layout (data not inside originals), evidence folder, data folder
+   writable, disk space, privacy mode. A FAIL stops start-up with a plain-language fix.
+4. **Start or reopen**: if the port is held by this app (checked via `/api/health`), the
+   launcher just reopens the browser. Otherwise it starts the server on `127.0.0.1` and opens
+   the browser.
+
+App security for a single-user local tool:
+- the server binds to `127.0.0.1`, and requests with a foreign `Host` (DNS rebinding) or
+  `Origin` are rejected;
+- state-changing requests need an `X-Legal-POC: 1` header, which other sites cannot send
+  cross-origin;
+- originals are streamed read-only, and non-PDF files are sent with `Content-Security-Policy:
+  sandbox`;
+- every import also compares a manifest taken before and after the run, which proves the
+  originals were untouched.
+
+## 7. Planned milestones
 
 | # | Scope | Notes |
 | --- | --- | --- |
@@ -129,10 +164,10 @@ Properties → Read-only, or NTFS permissions; macOS/Linux: `chmod -R a-w`).
 | 2 | Retrieval | In-process hybrid: BM25 over chunks (with exact-phrase and reference/ID matching for names, dates, "Article 24", case references), plus local sentence embeddings via `@huggingface/transformers` (ONNX, model files stored locally, multilingual e5-small class). Reciprocal-rank fusion and optional local cross-encoder reranking. Filters: matter, type, date range, author. Results carry `evidence_id, filename, page, heading, chunk_id, score, retrieval_method`. |
 | 3 | Grounded Q&A + verification | LLM is optional and **off by default** (`ALLOW_EXTERNAL_LLM=false`). Local inference (e.g. Ollama/llama.cpp HTTP on localhost) preferred. Citation verifier compares claims with the stored chunk text (exact/normalised quote match, then lexical overlap, then optional NLI/LLM check) and returns VERIFIED / PARTIALLY_SUPPORTED / UNSUPPORTED / SOURCE_ERROR. Refuses with "Insufficient evidence found in the indexed corpus." when retrieval is weak. |
 | 4 | Analysis | Deterministic services first: chronology from dated chunks and email timestamps (explicit vs inferred dates kept apart); position comparison grouped by issue; potentially-unaddressed evidence (items raised in a submission, searched in the decision, classified cautiously, always labelled probabilistic). |
-| 5 | MCP / Hermes | stdio MCP server (`@modelcontextprotocol/sdk`) exposing read-only `legal_*` tools; example `docs/hermes-mcp-example.yaml` for `~/.hermes/config.yaml` `mcp_servers`. Small API + static UI bound to `127.0.0.1`. |
+| 5 | MCP / Hermes, app screens | Local app shell, corpus, import and originals check are **done** (§6). Still to do: search/ask/timeline/compare screens; stdio MCP server (`@modelcontextprotocol/sdk`) exposing read-only `legal_*` tools; example `docs/hermes-mcp-example.yaml` for `~/.hermes/config.yaml` `mcp_servers`. |
 | 6 | Evaluation | `tests/eval/gold_cases.yaml` (≥ 20 questions), metrics in `docs/evaluation.md`, results in `docs/poc-results.md`. |
 
-## 7. Dependencies (resolved October 2026)
+## 8. Dependencies (resolved October 2026)
 
 Runtime (Node.js ≥ 20.12; tested on 22.22):
 
@@ -151,14 +186,15 @@ Runtime (Node.js ≥ 20.12; tested on 22.22):
 | zod | 4.x | Schemas and validation |
 | yaml | 2.x | Configuration |
 | commander | 15.x | CLIs |
+| tsx | 4.x | Runs the TypeScript sources directly (launcher and CLIs) |
 
-Development: typescript 7, tsx, vitest 5, pdfkit and docx (sample corpus generation only).
+Development: typescript 7, vitest 5, pdfkit and docx (sample corpus generation only).
 
 Known advisory: `npm audit` reports a moderate issue in `sprintf-js`, pulled in via
 `argparse`, which mammoth uses only for its own command-line tool. It does not affect library
 use. Keep an eye on mammoth releases.
 
-## 8. Privacy and security
+## 9. Privacy and security
 
 - Local-first: no network access at runtime. The OCR model is bundled.
 - No document text in logs: the audit log holds IDs, hashes, statuses and short errors only (tested).
