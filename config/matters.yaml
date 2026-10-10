@@ -13,6 +13,14 @@ matters:
     label: Article 90 complaint
     path_prefixes: ["article90/", "art90/"]
     keywords: ["article 90", "complaint under article 90"]
+  - id: inquiry
+    label: Administrative inquiry
+    path_prefixes: ["investigation/", "inquiry/"]
+    keywords: ["administrative inquiry"]
+  - id: court
+    label: Court proceedings
+    path_prefixes: ["court/"]
+    keywords: ["general court", "t-123/26"]
   - id: termination
     label: Contract termination
     path_prefixes: ["termination/"]

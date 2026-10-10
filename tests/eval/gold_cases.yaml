@@ -1,0 +1,282 @@
+# Gold evaluation set for the fictional sample corpus (src/testing/sample-corpus.ts).
+#
+# Expected evidence is given by file path relative to the evidence folder ("files"), which the
+# runner resolves to Evidence IDs through the registry (so the set does not depend on ID
+# allocation). "evidence_ids" may be used instead for a real corpus with a fixed registry.
+# Several acceptable sources may be listed: any of them counts as a hit for retrieval.
+#
+# Curated by hand from the corpus content. Update together with the sample corpus.
+version: 1
+corpus: sample
+
+cases:
+  # ---------------------------------------------------------------- exact facts (7)
+  - id: FACT-001
+    category: fact
+    question: "When was the Article 24 complaint submitted and what document proves the date?"
+    expected:
+      files:
+        - article24/2025-01-17_request_for_assistance_article24.pdf
+        - emails/2025-01-17_submission_of_request.msg
+        - article24/2025-05-12_decision_on_request_for_assistance.pdf
+        - article24/2025-01-20_acknowledgement_of_registration.pdf
+      pages: [1]
+      required_terms: ["17 January 2025"]
+
+  - id: FACT-002
+    category: fact
+    question: "Under which reference was the request for assistance registered?"
+    expected:
+      files:
+        - article24/2025-01-20_acknowledgement_of_registration.pdf
+        - article24/2025-05-12_decision_on_request_for_assistance.pdf
+      pages: [1]
+      required_terms: ["ART24-2025-0012"]
+
+  - id: FACT-003
+    category: fact
+    question: "Which doctor certified that Ms Doe was unfit for work in December 2024?"
+    expected:
+      files: [article24/annex_A_medical_certificate_scanned.pdf]
+      pages: [1]
+      required_terms: ["Weber"]
+
+  - id: FACT-004
+    category: fact
+    question: "When was the Article 90 complaint registered and under which reference?"
+    expected:
+      files:
+        - article90/2025-08-04_acknowledgement_of_complaint.eml
+        - article90/2025-11-28_reply_to_complaint_article90.pdf
+      pages: [1]
+      required_terms: ["4 August 2025", "R/123/25"]
+
+  - id: FACT-005
+    category: fact
+    question: "What is the case number of the action before the General Court?"
+    expected:
+      files:
+        - court/2026-02-20_application_general_court.pdf
+        - court/2026-05-15_defence_example_agency.docx
+        - court/registry_receipt_scanned.pdf
+      pages: [1]
+      required_terms: ["T-123/26"]
+
+  - id: FACT-006
+    category: fact
+    question: "Which period did the IAS audit of Unit C.3 cover?"
+    expected:
+      files: [audit/IAS_audit_report_2024-07.pdf]
+      pages: [1]
+      required_terms: ["2022-2024"]
+
+  - id: FACT-007
+    category: fact
+    question: "When was Mr Hale interviewed in the administrative inquiry?"
+    expected:
+      files: [investigation/2025-04-14_administrative_inquiry_report.pdf]
+      pages: [1]
+      required_terms: ["24 March 2025"]
+
+  # ---------------------------------------------------------------- chronology (5)
+  - id: CHRON-001
+    category: chronology
+    question: "Build the chronology of the Article 24 procedure from submission to final decision."
+    expected:
+      files: [article24/2025-01-17_request_for_assistance_article24.pdf, article24/2025-05-12_decision_on_request_for_assistance.pdf]
+      events:
+        - date: "2025-01-17"
+          files: [article24/2025-01-17_request_for_assistance_article24.pdf, emails/2025-01-17_submission_of_request.msg, article24/2025-05-12_decision_on_request_for_assistance.pdf, article24/2025-01-20_acknowledgement_of_registration.pdf]
+        - date: "2025-01-20"
+          files: [article24/2025-01-20_acknowledgement_of_registration.pdf, article24/2025-05-12_decision_on_request_for_assistance.pdf]
+        - date: "2025-05-12"
+          files: [article24/2025-05-12_decision_on_request_for_assistance.pdf]
+
+  - id: CHRON-002
+    category: chronology
+    question: "Build the chronology of the Article 90 complaint procedure."
+    expected:
+      files: [article90/2025-07-30_complaint_article90_against_decision.pdf, article90/2025-11-28_reply_to_complaint_article90.pdf]
+      events:
+        - date: "2025-07-30"
+          files: [article90/2025-07-30_complaint_article90_against_decision.pdf, article90/2025-08-04_acknowledgement_of_complaint.eml, article90/2025-11-28_reply_to_complaint_article90.pdf]
+        - date: "2025-08-04"
+          files: [article90/2025-08-04_acknowledgement_of_complaint.eml, article90/2025-11-28_reply_to_complaint_article90.pdf]
+        - date: "2025-11-28"
+          files: [article90/2025-11-28_reply_to_complaint_article90.pdf, court/2026-02-20_application_general_court.pdf]
+
+  - id: CHRON-003
+    category: chronology
+    question: "Build the chronology of the administrative inquiry."
+    expected:
+      files: [investigation/2025-04-14_administrative_inquiry_report.pdf]
+      events:
+        - date: "2025-03-03"
+          files: [investigation/2025-03-03_decision_opening_inquiry.docx, investigation/2025-04-14_administrative_inquiry_report.pdf, emails/2025-03-10_invitation_to_interview.msg]
+        - date: "2025-03-20"
+          files: [investigation/2025-04-14_administrative_inquiry_report.pdf, emails/2025-03-10_invitation_to_interview.msg]
+        - date: "2025-03-24"
+          files: [investigation/2025-04-14_administrative_inquiry_report.pdf]
+        - date: "2025-04-14"
+          files: [investigation/2025-04-14_administrative_inquiry_report.pdf, court/2026-02-20_application_general_court.pdf, court/2026-05-15_defence_example_agency.docx]
+
+  - id: CHRON-004
+    category: chronology
+    question: "Build the chronology of the proceedings before the General Court."
+    expected:
+      files: [court/2026-02-20_application_general_court.pdf]
+      events:
+        - date: "2026-02-20"
+          files: [court/2026-02-20_application_general_court.pdf, court/registry_receipt_scanned.pdf]
+        - date: "2026-05-15"
+          files: [court/2026-05-15_defence_example_agency.docx]
+
+  - id: CHRON-005
+    category: chronology
+    question: "Build the chronology of Ms Doe's sick leave and medical evidence."
+    expected:
+      files: [article24/annex_A_medical_certificate_scanned.pdf, article90/annex_2_medical_report_scanned.pdf]
+      events:
+        - date: "2024-12-02"
+          files: [article24/annex_A_medical_certificate_scanned.pdf, article24/2025-01-17_request_for_assistance_article24.pdf]
+        - date: "2025-06-15"
+          files: [article90/annex_2_medical_report_scanned.pdf, article90/2025-07-30_complaint_article90_against_decision.pdf, article90/2025-11-28_reply_to_complaint_article90.pdf]
+
+  # ---------------------------------------------------------------- comparison (4)
+  - id: CMP-001
+    category: comparison
+    question: "Compare the organisation's position on the audit report across the termination material, lawyer correspondence and later submissions."
+    expected:
+      files: [termination/2025-02-28_termination_letter.docx, lawyer/2025-03-15_letter_from_counsel.docx, article90/2025-11-28_reply_to_complaint_article90.pdf, court/2026-05-15_defence_example_agency.docx]
+      pairs:
+        - files: [termination/2025-02-28_termination_letter.docx, lawyer/2025-03-15_letter_from_counsel.docx]
+          relations: [potential_contradiction, possible_tension]
+
+  - id: CMP-002
+    category: comparison
+    question: "Did the Administration attribute the audit findings to Ms Doe personally?"
+    expected:
+      files: [termination/2025-02-28_termination_letter.docx, article90/2025-11-28_reply_to_complaint_article90.pdf, court/2026-05-15_defence_example_agency.docx]
+      pairs:
+        - files: [termination/2025-02-28_termination_letter.docx, article90/2025-11-28_reply_to_complaint_article90.pdf]
+          relations: [potential_contradiction, possible_tension]
+        - files: [article90/2025-11-28_reply_to_complaint_article90.pdf, court/2026-05-15_defence_example_agency.docx]
+          relations: [potential_contradiction, possible_tension]
+
+  - id: CMP-003
+    category: comparison
+    question: "Who was responsible for the procurement irregularities identified by the Internal Audit Service?"
+    expected:
+      files: [emails/2024-12-03_email_from_hale_annex_c.eml, audit/2025-01-15_IAS_follow_up_memo.docx, audit/IAS_audit_report_2024-07.pdf]
+      pairs:
+        - files: [emails/2024-12-03_email_from_hale_annex_c.eml, audit/2025-01-15_IAS_follow_up_memo.docx]
+          relations: [potential_contradiction, possible_tension]
+
+  - id: CMP-004
+    category: comparison
+    question: "What happened at the unit meeting of 26 November 2024?"
+    expected:
+      files: [investigation/2025-04-14_administrative_inquiry_report.pdf, attachment:Annex_B_witness_statement_Rossi.docx]
+      pairs:
+        # Consistent accounts: must NOT be presented as a contradiction.
+        - files: [attachment:Annex_B_witness_statement_Rossi.docx, investigation/2025-04-14_administrative_inquiry_report.pdf]
+          relations: [consistent, changed_wording]
+
+  # ---------------------------------------------------------------- potentially unaddressed evidence (3)
+  - id: UNADD-001
+    category: unaddressed
+    question: "Which evidence submitted with the Article 24 request is not addressed in the decision of 12 May 2025?"
+    sources: [article24/2025-01-17_request_for_assistance_article24.pdf]
+    targets: [article24/2025-05-12_decision_on_request_for_assistance.pdf]
+    expected:
+      items:
+        - { label: "Annex A", classification: [addressed] }
+        - { label: "Annex B", classification: [no_treatment_found, uncertain] }
+        - { label: "Annex C", classification: [addressed] }
+
+  - id: UNADD-002
+    category: unaddressed
+    question: "Which annexes of the Article 90 complaint are not addressed in the reply?"
+    sources: [article90/2025-07-30_complaint_article90_against_decision.pdf]
+    targets: [article90/2025-11-28_reply_to_complaint_article90.pdf]
+    expected:
+      items:
+        - { label: "Annex 1", classification: [no_treatment_found, uncertain] }
+        - { label: "Annex 2", classification: [addressed] }
+        - { label: "Annex 3", classification: [addressed] }
+        - { label: "Annex 4", classification: [referenced_only] }
+
+  - id: UNADD-003
+    category: unaddressed
+    question: "Which annexes of the application are not addressed in the defence?"
+    sources: [court/2026-02-20_application_general_court.pdf]
+    targets: [court/2026-05-15_defence_example_agency.docx]
+    expected:
+      items:
+        - { label: "Annex A5", classification: [no_treatment_found, uncertain] }
+        - { label: "Annex A6", classification: [addressed] }
+
+  # ---------------------------------------------------------------- citation verification (8)
+  - id: CITE-001
+    category: citation
+    claim: "The request was registered on 20 January 2025."
+    citation: { file: article24/2025-05-12_decision_on_request_for_assistance.pdf, page: 1 }
+    expected_status: VERIFIED
+
+  - id: CITE-002
+    category: citation
+    claim: "The request was registered on 21 January 2025."
+    citation: { file: article24/2025-05-12_decision_on_request_for_assistance.pdf, page: 1 }
+    expected_status: UNSUPPORTED   # wrong date
+
+  - id: CITE-003
+    category: citation
+    claim: "The IAS follow-up identified individual responsibility for the weaknesses."
+    citation: { file: audit/2025-01-15_IAS_follow_up_memo.docx }
+    expected_status: UNSUPPORTED   # reversed meaning
+
+  - id: CITE-004
+    category: citation
+    claim: "The request for assistance was rejected."
+    citation: { file: article24/2025-05-12_decision_on_request_for_assistance.pdf, page: 1, quoted_text: "the request for assistance is rejected" }
+    expected_status: PARTIALLY_SUPPORTED   # quote is on page 2
+
+  - id: CITE-005
+    category: citation
+    claim: "The request was rejected."
+    citation: { file: article24/2025-05-12_decision_on_request_for_assistance.pdf, page: 7 }
+    expected_status: SOURCE_ERROR   # page does not exist
+
+  - id: CITE-006
+    category: citation
+    claim: "The decision granted the request."
+    citation: { file: article24/2025-05-12_decision_on_request_for_assistance.pdf, page: 2, quoted_text: "the request for assistance is granted" }
+    expected_status: UNSUPPORTED   # fabricated quote
+
+  - id: CITE-007
+    category: citation
+    claim: "Ms Doe was unfit for work from 2 December 2024 to 20 December 2024."
+    citation: { file: article24/annex_A_medical_certificate_scanned.pdf, page: 1 }
+    expected_status: VERIFIED   # OCR text
+
+  - id: CITE-008
+    category: citation
+    claim: "The termination took effect from 31 May 2025."
+    citation: { file: termination/2025-02-28_termination_letter.docx }
+    expected_status: VERIFIED   # DOCX, no page
+
+  # ---------------------------------------------------------------- refusals (3)
+  - id: NEG-001
+    category: insufficient
+    question: "What was the outcome of Ms Doe's pension appeal?"
+    expected: insufficient
+
+  - id: NEG-002
+    category: insufficient
+    question: "How much compensation did the General Court award?"
+    expected: insufficient
+
+  - id: NEG-003
+    category: insufficient
+    question: "What is the capital of France?"
+    expected: insufficient

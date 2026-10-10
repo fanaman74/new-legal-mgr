@@ -363,6 +363,238 @@ export async function generateSampleCorpus(dir: string): Promise<SampleFile[]> {
     "Markdown notes",
   );
 
+  // ----- Article 90 complaint against the decision ------------------------------------------
+  const complaint90 = await makePdf(
+    [
+      { h: "COMPLAINT UNDER ARTICLE 90(2) OF THE STAFF REGULATIONS", size: 15 },
+      { p: "Brussels, 30 July 2025" },
+      { p: "From: Jane Doe, represented by Maître Anne Leroy\nTo: The Appointing Authority, Example Agency" },
+      { h: "1. Contested decision" },
+      { p: "This complaint is directed against the decision of 12 May 2025 rejecting my request for assistance ART24-2025-0012." },
+      { h: "2. Grounds" },
+      {
+        p: "First, the decision does not examine the witness statement of Ms Maria Rossi, although it was submitted with the request. Second, the decision relies on the audit report without considering the email of the Internal Audit Service of 2 October 2024. Third, my health deteriorated as documented by the medical report of 15 June 2025.",
+      },
+      "pagebreak",
+      { h: "3. Annexes" },
+      {
+        p: "Annex 1: witness statement of Ms Maria Rossi dated 10 January 2025.\nAnnex 2: medical report of Dr Thomas Weber dated 15 June 2025.\nAnnex 3: email of the Internal Audit Service of 2 October 2024.\nAnnex 4: performance appraisal report for 2023.",
+      },
+      { h: "4. Request" },
+      { p: "I request the annulment of the decision of 12 May 2025 and compensation for the damage suffered." },
+    ],
+    "Complaint under Article 90(2) - J. Doe",
+  );
+  write("article90/2025-07-30_complaint_article90_against_decision.pdf", complaint90, "Article 90(2) complaint (2 pages) raising Annexes 1-4");
+  write(
+    "article90/annex_2_medical_report_scanned.pdf",
+    await makeScannedPdf([
+      { h: "MEDICAL REPORT", size: 16 },
+      { p: "Date: 15 June 2025", size: 13 },
+      { p: "Ms Jane Doe has been under my care since December 2024. She presents symptoms consistent with work-related stress.", size: 13 },
+      { p: "Dr. Thomas Weber, General Practitioner", size: 13 },
+    ]),
+    "Scanned medical report (Annex 2 of the complaint)",
+  );
+  write(
+    "article90/annex_4_performance_appraisal_2023.docx",
+    await makeDocx({
+      title: "Appraisal report 2023",
+      creator: "HR system",
+      blocks: [
+        { h: "Performance appraisal report 2023 - Jane Doe" },
+        { p: "Date: 31 January 2024" },
+        { p: "Overall assessment: the jobholder's performance exceeds expectations. Procurement files were handled with rigour and in compliance with the applicable rules." },
+        { p: "Reporting officer: Victor Hale" },
+      ],
+    }),
+    "Annex 4 of the complaint: 2023 appraisal (DOCX)",
+  );
+  write(
+    "article90/2025-08-04_acknowledgement_of_complaint.eml",
+    makeEml({
+      from: `"${HR.name}" <${HR.address}>`,
+      to: `"${COUNSEL.name}" <${COUNSEL.address}>`,
+      subject: "Acknowledgement - complaint R/123/25",
+      date: "Mon, 4 Aug 2025 11:20:00 +0200",
+      messageId: "<20250804112000.hr03@agency.example.org>",
+      body: "Dear Maître Leroy,\r\n\r\nWe acknowledge receipt of the complaint under Article 90(2) lodged on behalf of Ms Doe on 30 July 2025. It was registered on 4 August 2025 under reference R/123/25.\r\n\r\nHR Unit B.2",
+    }),
+    "Email (.eml) acknowledging the Article 90 complaint",
+  );
+  const reply90 = await makePdf(
+    [
+      { h: "REPLY TO COMPLAINT R/123/25", size: 15 },
+      { p: "Brussels, 28 November 2025" },
+      { h: "1. Procedure" },
+      { p: "The complaint of 30 July 2025 was registered on 4 August 2025 under reference R/123/25." },
+      { h: "2. Assessment" },
+      {
+        p: "The Appointing Authority has examined the medical report of 15 June 2025 (Annex 2). It considers that the report does not establish that the conduct complained of caused the symptoms described.",
+      },
+      {
+        p: "As regards the email of the Internal Audit Service of 2 October 2024 (Annex 3), the Appointing Authority notes that the audit concerned the design of the procurement workflow.",
+      },
+      "pagebreak",
+      { p: "The Administration does not contend that the audit report attributes the findings to the complainant personally." },
+      { p: "The complainant also refers to her performance appraisal for 2023 (Annex 4)." },
+      { h: "3. Conclusion" },
+      { p: "The complaint is rejected." },
+      { p: "For the Appointing Authority, Paul Martin" },
+    ],
+    "Reply to complaint R/123/25",
+  );
+  write("article90/2025-11-28_reply_to_complaint_article90.pdf", reply90, "Reply rejecting the complaint (2 pages); silent on Annex 1, only mentions Annex 4");
+
+  // ----- Administrative inquiry ----------------------------------------------------------------
+  write(
+    "investigation/2025-03-03_decision_opening_inquiry.docx",
+    await makeDocx({
+      title: "Decision opening an administrative inquiry",
+      creator: "Investigation unit",
+      blocks: [
+        { h: "Decision opening an administrative inquiry" },
+        { p: "Brussels, 3 March 2025" },
+        { p: "An administrative inquiry is opened into the allegations made by Ms Jane Doe in her request for assistance of 17 January 2025. The inquiry is entrusted to the Investigation Unit, which shall report within six weeks." },
+      ],
+    }),
+    "Decision opening the inquiry (DOCX)",
+  );
+  write(
+    "investigation/2025-04-14_administrative_inquiry_report.pdf",
+    await makePdf(
+      [
+        { h: "ADMINISTRATIVE INQUIRY REPORT", size: 15 },
+        { p: "Investigation Unit\nFinal report, 14 April 2025" },
+        { h: "1. Conduct of the inquiry" },
+        { p: "The inquiry was opened on 3 March 2025. Ms Maria Rossi was interviewed on 20 March 2025. Mr Victor Hale was interviewed on 24 March 2025." },
+        "pagebreak",
+        { h: "2. Findings" },
+        { p: "Ms Rossi confirmed that Mr Hale raised his voice at Ms Doe during the meeting of 26 November 2024. Mr Hale stated that he had only criticised the handling of procurement files." },
+        { p: "The inquiry found that the incident of 26 November 2024 took place but did not establish a repeated pattern of conduct." },
+        "pagebreak",
+        { h: "3. Recommendations" },
+        { p: "It is recommended that managers in Unit C.3 attend training on respectful communication." },
+      ],
+      "Administrative inquiry report",
+    ),
+    "Investigation report (3 pages)",
+  );
+
+  // ----- Court proceedings ---------------------------------------------------------------------
+  write(
+    "court/2026-02-20_application_general_court.pdf",
+    await makePdf(
+      [
+        { h: "APPLICATION TO THE GENERAL COURT", size: 15 },
+        { p: "Case T-123/26, Doe v Example Agency\nLodged on 20 February 2026" },
+        { h: "Form of order sought" },
+        { p: "The applicant claims that the Court should annul the decision of 12 May 2025 and the reply to complaint R/123/25 of 28 November 2025, and order the Agency to pay damages." },
+        "pagebreak",
+        { h: "Pleas in law" },
+        {
+          p: "First plea: failure to examine the witness statement of Ms Maria Rossi (Annex A.5). Second plea: manifest error of assessment of the inquiry report of 14 April 2025 (Annex A.6). Third plea: breach of the duty to state reasons.",
+        },
+        { h: "Annexes" },
+        { p: "Annex A.5: witness statement of Ms Maria Rossi dated 10 January 2025.\nAnnex A.6: administrative inquiry report of 14 April 2025." },
+      ],
+      "Application T-123/26",
+    ),
+    "Court application (2 pages) raising Annexes A.5 and A.6",
+  );
+  write(
+    "court/2026-05-15_defence_example_agency.docx",
+    await makeDocx({
+      title: "Defence - Case T-123/26",
+      creator: "Agent of the Agency",
+      blocks: [
+        { h: "Defence of Example Agency, Case T-123/26" },
+        { p: "Luxembourg, 15 May 2026" },
+        { h: "On the second plea", level: 2 },
+        { p: "The inquiry report of 14 April 2025 (Annex A.6) found that no repeated pattern of conduct was established. The Agency considers that the Appointing Authority correctly relied on that report." },
+        { h: "On the audit report", level: 2 },
+        { p: "The Agency contends that the audit report identified shortcomings in the procurement files handled by the applicant." },
+        { p: "For the Agency, its agents" },
+      ],
+    }),
+    "Defence (DOCX): position on the audit report changes again; silent on Annex A.5",
+  );
+  write(
+    "court/registry_receipt_scanned.pdf",
+    await makeScannedPdf([
+      { h: "GENERAL COURT - REGISTRY", size: 16 },
+      { p: "Receipt of a procedural document", size: 13 },
+      { p: "Case T-123/26. The application was received at the Registry on 20 February 2026.", size: 13 },
+    ]),
+    "Scanned registry receipt",
+  );
+
+  // ----- More emails and audit material ---------------------------------------------------------
+  write(
+    "emails/2024-12-03_email_from_hale_annex_c.eml",
+    makeEml({
+      from: '"Victor Hale" <victor.hale@agency.example.org>',
+      to: `"${JANE.name}" <${JANE.address}>`,
+      subject: "Procurement files",
+      date: "Tue, 3 Dec 2024 18:47:00 +0100",
+      messageId: "<20241203184700.vh01@agency.example.org>",
+      body: "Jane,\r\n\r\nYou are personally responsible for the procurement irregularities identified by the Internal Audit Service. I expect a full explanation by Friday.\r\n\r\nVictor",
+    }),
+    "The 'Annex C' email itself (.eml)",
+  );
+  write(
+    "emails/2025-03-10_invitation_to_interview.msg",
+    buildMsg({
+      subject: "Administrative inquiry - invitation to interview",
+      from: { name: "Investigation Unit", address: "investigations@agency.example.org" },
+      to: [{ name: "Maria Rossi", address: "maria.rossi@agency.example.org" }],
+      sentAt: new Date("2025-03-10T09:00:00Z"),
+      utcOffsetMinutes: 60,
+      messageId: "<20250310090000.iu01@agency.example.org>",
+      body: "Dear Ms Rossi,\r\n\r\nIn the context of the administrative inquiry opened on 3 March 2025, you are invited to an interview on 20 March 2025 at 10:00.\r\n\r\nInvestigation Unit",
+    }),
+    "Outlook .msg invitation to interview",
+  );
+  write(
+    "emails/2025-06-02_request_for_access_to_file.eml",
+    makeEml({
+      from: `"${COUNSEL.name}" <${COUNSEL.address}>`,
+      to: `"${HR.name}" <${HR.address}>`,
+      subject: "Request for access to the personal file - Ms Doe",
+      date: "Mon, 2 Jun 2025 15:05:00 +0200",
+      messageId: "<20250602150500.al02@lawfirm.example.org>",
+      body: "Dear colleagues,\r\n\r\nOn behalf of my client, I request access to the complete file of the administrative inquiry, including the interview records of 20 and 24 March 2025.\r\n\r\nAnne Leroy",
+    }),
+    "Lawyer email (.eml) requesting access to the file",
+  );
+  write(
+    "emails/2025-12-01_fwd_reply_to_complaint.msg",
+    buildMsg({
+      subject: "FW: Reply to complaint R/123/25",
+      from: HR,
+      to: [COUNSEL],
+      sentAt: new Date("2025-12-01T08:15:00Z"),
+      utcOffsetMinutes: 60,
+      messageId: "<20251201081500.hr04@agency.example.org>",
+      body: "Dear Maître Leroy,\r\n\r\nPlease find attached the reply to the complaint R/123/25 of your client.\r\n\r\nHR Unit B.2",
+      attachments: [{ filename: "Reply_R-123-25.pdf", mimeType: "application/pdf", data: reply90 }],
+    }),
+    "Outlook .msg forwarding the reply (attachment duplicates the reply PDF)",
+  );
+  write(
+    "audit/2025-01-15_IAS_follow_up_memo.docx",
+    await makeDocx({
+      title: "IAS follow-up memo",
+      creator: "Internal Audit Service",
+      blocks: [
+        { h: "Follow-up of audit IAS-2024-07" },
+        { p: "Date: 15 January 2025" },
+        { p: "Both recommendations of audit IAS-2024-07 have been implemented: segregation of duties is now enforced and approval thresholds are configured. The follow-up did not identify any individual responsibility." },
+      ],
+    }),
+    "IAS follow-up memo (DOCX)",
+  );
+
   write("misc/agency_logo.png", Uint8Array.from(Buffer.from("89504e470d0a1a0a0000000d4948445200000001000000010806000000", "hex")), "Unsupported format (image) - registered with hash only");
 
   return files;

@@ -208,11 +208,26 @@ export function classifyDocumentType(args: {
   rules: DocumentTypeRule[];
 }): TypeChoice {
   if (args.isEmail) return { type: "email", confidence: "high", basis: "email file format" };
-  const p = normaliseForMatch(args.relativePath);
-  for (const rule of args.rules) {
-    const hit = rule.path_patterns.find((pat) => p.includes(normaliseForMatch(pat)));
-    if (hit) return { type: rule.id, confidence: "medium", basis: `path contains "${hit}"` };
-  }
+  // In legal file names the head noun usually comes first ("decision on request...",
+  // "complaint ... against decision", "reply to complaint"): the earliest match in the file
+  // name wins (longest pattern on ties); folder names are only used when the file name is silent.
+  const pickEarliest = (hay: string) => {
+    let best: { rule: string; pattern: string; at: number } | null = null;
+    for (const rule of args.rules) {
+      for (const pat of rule.path_patterns) {
+        const n = normaliseForMatch(pat);
+        const at = hay.indexOf(n);
+        if (at >= 0 && (!best || at < best.at || (at === best.at && n.length > best.pattern.length))) best = { rule: rule.id, pattern: n, at };
+      }
+    }
+    return best;
+  };
+  const filename = normaliseForMatch(path.basename(args.relativePath).replace(/\.[a-z0-9]+$/i, ""));
+  const folders = normaliseForMatch(path.dirname(args.relativePath));
+  const fromName = pickEarliest(filename);
+  if (fromName) return { type: fromName.rule, confidence: "medium", basis: `file name contains "${fromName.pattern}"` };
+  const fromFolder = folders !== "." ? pickEarliest(folders) : null;
+  if (fromFolder) return { type: fromFolder.rule, confidence: "low", basis: `stored in folder containing "${fromFolder.pattern}"` };
   const t = args.openingText.toLowerCase().replace(/\s+/g, " ");
   for (const rule of args.rules) {
     const hit = rule.text_patterns.find((pat) => t.includes(pat.toLowerCase()));
