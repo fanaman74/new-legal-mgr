@@ -1,3 +1,5 @@
+import { existsSync, mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { checkPrerequisites } from "../../src/app/prereqs.js";
@@ -38,7 +40,19 @@ describe("launcher dependency check", () => {
     expect(nodeVersionOk("18.20.0")).toBe(false);
   });
 
-  it("reuses the installed libraries of this repository", () => {
-    expect(installReason()).toBeNull();
+  it("installs when missing, reuses healthy installs and reinstalls after an update", () => {
+    const root = mkdtempSync(path.join(tmpdir(), "deps-"));
+    writeFileSync(path.join(root, "package.json"), JSON.stringify({ dependencies: { alpha: "1.0.0" }, devDependencies: { beta: "1.0.0" } }));
+    writeFileSync(path.join(root, "package-lock.json"), '{"lockfileVersion":3}');
+    expect(installReason(root)).toBe("libraries not installed yet");
+    mkdirSync(path.join(root, "node_modules", "alpha"), { recursive: true });
+    expect(installReason(root)).toBe("some libraries are missing");
+    mkdirSync(path.join(root, "node_modules", "beta"), { recursive: true });
+    writeFileSync(path.join(root, "node_modules", "alpha", "package.json"), "{}");
+    writeFileSync(path.join(root, "node_modules", "beta", "package.json"), "{}");
+    expect(installReason(root)).toBeNull(); // healthy install is reused (and stamped)
+    expect(existsSync(path.join(root, "node_modules", ".legal-poc-install-stamp"))).toBe(true);
+    writeFileSync(path.join(root, "package-lock.json"), '{"lockfileVersion":3,"changed":true}');
+    expect(installReason(root)).toBe("the application was updated");
   });
 });

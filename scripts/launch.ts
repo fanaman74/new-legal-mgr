@@ -43,7 +43,25 @@ async function alreadyRunning(port: number): Promise<boolean> {
   }
 }
 
-console.log("[3/3] Checking prerequisites...\n");
+console.log("[3/4] Checking the local search model...");
+if (["auto", "transformers"].includes(cfg.retrieval.semantic.provider)) {
+  const { ensureModel, readModelManifest } = await import("../src/retrieval/models.js");
+  if (readModelManifest(cfg.retrieval.semantic.modelsDir, cfg.retrieval.semantic.model)) {
+    console.log("      Search model is installed.");
+  } else {
+    console.log(`      Downloading the search model ${cfg.retrieval.semantic.model} (one time, about 25-90 MB)...`);
+    try {
+      const m = await ensureModel(cfg.retrieval.semantic.modelsDir, cfg.retrieval.semantic.model, (s) => console.log(`      ${s.trim()}`));
+      console.log(`      Installed from ${m.source}.`);
+    } catch (err) {
+      console.log(`      Could not download it (${(err as Error).message}).`);
+      console.log("      The app will use its built-in, simpler semantic search and retry next time.");
+    }
+  }
+} else {
+  console.log(`      Not needed (semantic provider: ${cfg.retrieval.semantic.provider}).`);
+}
+console.log("\n[4/4] Checking prerequisites...\n");
 if (opts.sample && !existsSync(sampleOriginals)) {
   const { generateSampleCorpus } = await import("../src/testing/sample-corpus.js");
   const files = await generateSampleCorpus(sampleOriginals);

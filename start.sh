@@ -65,6 +65,8 @@ else
   fi
 fi
 export PATH
+# Let Node.js downloads (search model) use a configured HTTP(S) proxy.
+if [ -n "${HTTPS_PROXY:-}${https_proxy:-}${HTTP_PROXY:-}${http_proxy:-}" ]; then export NODE_USE_ENV_PROXY=1; fi
 
 node scripts/ensure-deps.mjs || fail
 echo

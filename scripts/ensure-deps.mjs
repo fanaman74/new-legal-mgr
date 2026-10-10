@@ -43,13 +43,15 @@ export function installReason(root = ROOT) {
 function runNpm(args) {
   const dir = path.dirname(process.execPath);
   const cli = [path.join(dir, "node_modules", "npm", "bin", "npm-cli.js"), path.join(dir, "..", "lib", "node_modules", "npm", "bin", "npm-cli.js")].find((f) => existsSync(f));
-  if (cli) return spawnSync(process.execPath, [cli, ...args], { cwd: ROOT, stdio: "inherit" });
+  // onnxruntime-node would otherwise download optional CUDA (GPU) binaries on Linux; this POC is CPU-only.
+  const env = { ...process.env, ONNXRUNTIME_NODE_INSTALL: process.env.ONNXRUNTIME_NODE_INSTALL ?? "skip" };
+  if (cli) return spawnSync(process.execPath, [cli, ...args], { cwd: ROOT, stdio: "inherit", env });
   // Fallback: npm from PATH (on Windows .cmd files need a shell since Node 20.12).
-  return spawnSync(process.platform === "win32" ? "npm.cmd" : "npm", args, { cwd: ROOT, stdio: "inherit", shell: process.platform === "win32" });
+  return spawnSync(process.platform === "win32" ? "npm.cmd" : "npm", args, { cwd: ROOT, stdio: "inherit", shell: process.platform === "win32", env });
 }
 
 function main() {
-  console.log(`[1/3] Node.js ${process.versions.node} found.`);
+  console.log(`[1/4] Node.js ${process.versions.node} found.`);
   if (!nodeVersionOk()) {
     console.error(`\nThis application needs Node.js ${MIN_NODE.join(".")} or newer.`);
     console.error("Start the application with the double-click launcher (it downloads a suitable private copy),");
@@ -57,7 +59,7 @@ function main() {
     process.exit(1);
   }
 
-  console.log("[2/3] Checking application libraries...");
+  console.log("[2/4] Checking application libraries...");
   const reason = installReason();
   if (!reason) {
     console.log("      Libraries are up to date.");

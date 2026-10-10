@@ -13,6 +13,9 @@ import { ingest, type IngestSummary } from "../ingestion/dispatcher.js";
 import { buildManifest, compareManifests } from "../ingestion/hashing.js";
 import { createBaseline, hasBaseline, verifyOriginals } from "../ingestion/originals-check.js";
 import { checkPrerequisites } from "./prereqs.js";
+import { LegalServices } from "../services.js";
+import { CORRECTABLE_FIELDS } from "../evidence/models.js";
+import { runEvaluation, type EvalReport } from "../evaluation/runner.js";
 
 /**
  * Local web app (Milestone 1 scope: corpus, ingestion, originals verification).
@@ -87,6 +90,8 @@ export async function startServer(cfg: AppConfig, opts: { port: number; host?: s
   const repo = new EvidenceRepository(cfg);
   const audit = new AuditLog(cfg.auditLog);
   const indexHtml = readFileSync(path.join(PUBLIC_DIR, "index.html"));
+  const services = new LegalServices(cfg);
+  let evalJob: { status: "running" | "done" | "failed"; started_at: string; report: EvalReport | null; error: string | null } | null = null;
   let job: IngestJob | null = null;
   let jobCounter = 0;
   let port = opts.port;
@@ -127,6 +132,9 @@ export async function startServer(cfg: AppConfig, opts: { port: number; host?: s
         };
         const { records: _records, ...rest } = summary;
         current.summary = rest;
+        current.log.push("Updating the search index...");
+        await services.search.getIndex();
+        current.log.push("Search index ready.");
         current.status = "done";
       } catch (err) {
         current.status = "failed";
@@ -221,6 +229,24 @@ export async function startServer(cfg: AppConfig, opts: { port: number; host?: s
       sendJson(res, 200, { job });
       return;
     }
+    if (method === "GET" && p === "/api/facets") {
+      const records = effectiveRecords();
+      const uniq = (xs: string[]) => [...new Set(xs)].filter(Boolean).sort();
+      const index = await services.search.getIndex();
+      sendJson(res, 200, {
+        matters: uniq([...cfg.matters.map((m) => m.id), ...records.flatMap((r) => r.document.matter)]),
+        document_types: uniq(records.map((r) => r.document.document_type)),
+        authors: uniq(records.flatMap((r) => r.document.author)),
+        correctable_fields: CORRECTABLE_FIELDS,
+        semantic: { provider: index.embedder?.id ?? null, note: index.semanticNote },
+        llm: cfg.llm.provider,
+      });
+      return;
+    }
+    if (method === "GET" && p === "/api/eval") {
+      sendJson(res, 200, { eval: evalJob });
+      return;
+    }
 
     if (method === "POST") {
       if (req.headers["x-legal-poc"] !== "1") throw new HttpError(403, "missing X-Legal-POC header");
@@ -246,6 +272,78 @@ export async function startServer(cfg: AppConfig, opts: { port: number; host?: s
         }
         const m = await createBaseline(cfg);
         sendJson(res, 200, { mode: "created", file_count: m.file_count, created_at: m.created_at });
+        return;
+      }
+      const str = (v: unknown) => (typeof v === "string" && v.trim() ? v.trim() : undefined);
+      const list = (v: unknown) => (Array.isArray(v) ? v.map(String).filter(Boolean) : typeof v === "string" && v.trim() ? v.split(",").map((x) => x.trim()).filter(Boolean) : undefined);
+      const num = (v: unknown) => (v === null || v === undefined || v === "" ? undefined : Number(v));
+      const need = (v: string | undefined, name: string) => {
+        if (!v) throw new HttpError(400, `${name} is required`);
+        return v;
+      };
+      if (p === "/api/search") {
+        sendJson(res, 200, await services.searchEvidence({
+          query: need(str(body.query), "query"),
+          matter: list(body.matter), document_type: list(body.document_type), author: list(body.author),
+          date_from: str(body.date_from), date_to: str(body.date_to),
+          top_k: num(body.top_k) ?? 10, mode: (str(body.mode) as "hybrid" | "lexical" | "semantic" | undefined) ?? "hybrid",
+        }));
+        return;
+      }
+      if (p === "/api/ask") {
+        sendJson(res, 200, await services.ask(need(str(body.question), "question"), { matter: list(body.matter) }));
+        return;
+      }
+      if (p === "/api/chronology") {
+        sendJson(res, 200, await services.chronology({ query: need(str(body.query), "query"), matter: list(body.matter), date_from: str(body.date_from), date_to: str(body.date_to) }));
+        return;
+      }
+      if (p === "/api/compare") {
+        sendJson(res, 200, await services.compare({ issue: need(str(body.issue), "issue"), evidence_ids: list(body.evidence_ids), matter: list(body.matter) }));
+        return;
+      }
+      if (p === "/api/unaddressed") {
+        sendJson(res, 200, await services.unaddressed({ source_evidence_ids: list(body.source_evidence_ids), target_evidence_ids: list(body.target_evidence_ids), query: str(body.query), matter: list(body.matter) }));
+        return;
+      }
+      if (p === "/api/verify") {
+        sendJson(res, 200, await services.verify({
+          claim: need(str(body.claim), "claim"),
+          evidence_id: need(str(body.evidence_id), "evidence_id"),
+          page: num(body.page) ?? null,
+          chunk_id: str(body.chunk_id) ?? null,
+          quoted_text: str(body.quoted_text) ?? null,
+        }));
+        return;
+      }
+      if (p === "/api/corrections") {
+        const id = need(str(body.evidence_id), "evidence_id");
+        const record = repo.loadCanonical(id);
+        if (!record) throw new HttpError(404, `unknown Evidence ID ${id}`);
+        try {
+          const raw = body.value === null || str(body.value) === "null" ? null : str(body.value) ?? "";
+          const correction = new CorrectionStore(cfg).add({ record, field: need(str(body.field), "field"), newValue: raw, reason: need(str(body.reason), "reason"), author: str(body.author) ?? "app user" });
+          audit.record({ action: "CORRECTION", evidence_id: id, field: correction.field, correction_id: correction.correction_id });
+          sendJson(res, 200, { correction });
+        } catch (err) {
+          throw new HttpError(400, (err as Error).message);
+        }
+        return;
+      }
+      if (p === "/api/eval") {
+        if (evalJob?.status === "running") throw new HttpError(409, "an evaluation is already running");
+        const current: NonNullable<typeof evalJob> = { status: "running", started_at: new Date().toISOString(), report: null, error: null };
+        evalJob = current;
+        void runEvaluation(cfg)
+          .then((r: EvalReport) => {
+            current.report = r;
+            current.status = "done";
+          })
+          .catch((err: unknown) => {
+            current.error = (err as Error).message;
+            current.status = "failed";
+          });
+        sendJson(res, 202, { eval: current });
         return;
       }
       if (p === "/api/open-folder") {

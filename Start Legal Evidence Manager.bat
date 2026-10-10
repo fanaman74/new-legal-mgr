@@ -45,6 +45,9 @@ start "" "https://nodejs.org/en/download"
 goto fail
 
 :have_node
+rem Let Node.js downloads (search model) use a configured HTTP(S) proxy.
+if defined HTTPS_PROXY set "NODE_USE_ENV_PROXY=1"
+if defined HTTP_PROXY set "NODE_USE_ENV_PROXY=1"
 node scripts\ensure-deps.mjs
 if errorlevel 1 goto fail
 
