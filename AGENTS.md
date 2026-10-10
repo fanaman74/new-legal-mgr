@@ -51,3 +51,15 @@ reachable from the double-click launchers (`Start Legal Evidence Manager.bat` / 
   citation verification)? Avoid Docker, graph databases, multiple vector stores and agent
   frameworks unless an evaluation failure requires them.
 - Versioned prompts live in `config/prompts/<name>.v<N>.md`. Never edit a released version.
+
+## Evaluation discipline
+
+- Changes to retrieval, answers, verification or analysis must keep `npm run eval` passing
+  (gold set) and `npm test` green. Update `docs/poc-results.md` with
+  `npm run eval -- --write-docs`.
+- **Never tune against `tests/eval/holdout_cases.yaml`.** When behaviour changes materially,
+  write new held-out cases first, run them once, and record the first-run result honestly.
+- A false VERIFIED is the worst failure: when changing the verifier, add adversarial cases
+  (wrong attribution, wrong date, reversed meaning, fabricated quote) before relaxing anything.
+- Keep the sample corpus fictional. Update `tests/eval/gold_cases.yaml` together with
+  `src/testing/sample-corpus.ts`.

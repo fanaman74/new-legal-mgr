@@ -1,7 +1,7 @@
 # Architecture
 
-Status: **Milestone 0 (plan) and Milestone 1 (immutable evidence ingestion) implemented.**
-Milestones 2–6 are planned below and not yet built.
+Status: **Milestones 0–6 implemented** and evaluated on a fictional sample corpus
+(see `docs/poc-results.md`).
 
 > The AI must never become the source of truth. The evidence is the source of truth, and
 > every useful AI conclusion must lead back to it.
@@ -19,8 +19,9 @@ owner asked for **Node.js instead of Docker**. They chose to build the whole POC
 | Docling (PDF/DOCX, OCR) | **pdfjs-dist** (PDF text + page geometry), **mammoth** (DOCX structure), **tesseract.js** (local OCR, WebAssembly) | No Python runtime. Docling's layout model (tables, reading order in multi-column layouts) is stronger; pdfjs + heuristics are adequate for typical letters, decisions and reports. Revisit if evaluation shows table/columns failures. |
 | `extract-msg` | **@kenjiuno/msgreader** (message fields) + **cfb** (direct compound-file access for attachments) | Every attachment storage is enumerated, so none is silently missed. Embedded messages are repackaged as standalone `.msg` files. |
 | — | **mailparser** for `.eml` | Added at the owner's request; same canonical email schema as `.msg`. |
-| RAGFlow (retrieval, citations, timelines, graph) | **Planned (Milestone 2): a small local hybrid retrieval layer in the same process** | RAGFlow ships only as a multi-container Docker deployment (Elasticsearch/Infinity, MySQL, MinIO, Redis). That is incompatible with "no Docker". For 30–50 documents, an in-process BM25 + local-embedding index is simpler and keeps full control of page provenance. |
-| `src/mcp/` package | `src/mcp-server/` (planned) | Avoids confusion with the MCP SDK package name. |
+| RAGFlow (retrieval, citations, timelines, graph) | **In-process hybrid retrieval** (BM25 + local sentence embeddings, RRF fusion) and deterministic analysis services | RAGFlow ships only as a multi-container Docker deployment (Elasticsearch/Infinity, MySQL, MinIO, Redis), which is incompatible with "no Docker". For 30–50 documents an in-process index is simpler and keeps full control of page provenance. No graph database (not needed by any workflow so far). |
+| LLM-generated answers | **Extractive answers by default**; optional local LLM (Ollama / OpenAI-compatible) whose every claim is verified | Keeps the evidence, not a model, as the source of truth, and works with no model at all. |
+| `src/mcp/` package | `src/mcp-server/` | Avoids confusion with the MCP SDK package name. |
 | `Makefile` | `npm run …` scripts | `make` is not available by default on Windows. |
 
 ## 2. Overview
@@ -54,12 +55,17 @@ owner asked for **Node.js instead of Docker**. They chose to build the whole POC
    data/corrections/corrections.jsonl (human overrides, separate)
    logs/audit.jsonl (append-only, no document content)
                       |
-        [Milestone 2] local hybrid retrieval (BM25 + local embeddings, RRF fusion)
+   RetrievalIndex: BM25 (legal-aware tokens) + local embeddings (transformers.js/ONNX;
+   Ollama or built-in LSA as alternatives) -> reciprocal rank fusion, filters, provenance
                       |
-        [Milestones 3-4] grounded answers, citation verification, chronology,
-                         comparison, potentially-unaddressed evidence (deterministic services)
+   Deterministic services (src/analysis/)                          every output is cited
+     answer (extractive / optional LLM) · chronology · comparison  and checked by the
+     unaddressed evidence · citation verification                  citation verifier
                       |
-        [Milestone 5] MCP server (stdio) for Hermes  +  small localhost API/UI
+        LegalServices facade (src/services.ts)
+          |                         |                          |
+   local web app + API        MCP server (stdio,          evaluation runner
+   (127.0.0.1, launchers)     read-only tools) -> Hermes  (gold + held-out sets)
 ```
 
 ## 3. Source layout
@@ -81,16 +87,30 @@ src/
     metadata.ts             format detection, date extraction, classification
     chunking.ts             structural chunking with exact offsets
     parsers/                pdf, ocr, docx, msg, eml, text, email-common, headings, types
+  retrieval/
+    text.ts                 tokenisation (references, anchors, dates), stemming, sentences
+    bm25.ts                 BM25 index
+    embeddings.ts           transformers.js / Ollama / LSA embedders
+    models.ts               model catalogue, one-time download + checksum manifest
+    search.ts               RetrievalIndex (hybrid search, filters) + SearchService (cache, audit)
+  analysis/
+    verification.ts         citation verifier
+    answer.ts               grounded Q&A (extractive; optional LLM in llm.ts)
+    chronology.ts, comparison.ts, unaddressed.ts, common.ts
+  services.ts               facade shared by app, MCP, CLIs and evaluation
+  mcp-server/server.ts      read-only MCP tools
+  evaluation/runner.ts      gold-set runner and report
   app/
     server.ts               local web app + JSON API (127.0.0.1 only)
     prereqs.ts              prerequisite checks (launcher and app)
     public/index.html       the browser interface (no external assets)
   testing/                  synthetic sample corpus + .msg writer (tests and demos only)
-scripts/                    CLI entry points (launch, ingest, corpus, check-originals, correct, sample-corpus)
+scripts/                    CLI entry points (launch, ingest, corpus, check-originals, correct,
+                            search, ask, mcp, run-eval, setup-models, sample-corpus)
   ensure-deps.mjs           plain JS: Node version check + install/update libraries when needed
   get-node.ps1              Windows: download a private, checksum-verified Node.js into .runtime/
 Start Legal Evidence Manager.bat / .command, start.sh   double-click launchers
-tests/unit, tests/integration
+tests/unit, tests/integration, tests/eval (gold_cases.yaml, holdout_cases.yaml)
 ```
 
 Boundaries kept from the brief: ingestion → evidence/provenance → retrieval → analysis →
@@ -139,10 +159,12 @@ entry point:
 2. **Libraries** (`scripts/ensure-deps.mjs`): `npm ci` on a fresh folder. After that
    `npm install` runs only when `package-lock.json` changes, so healthy packages are reused.
    An install stamp in `node_modules` records the lockfile hash.
-3. **Prerequisites** (`src/app/prereqs.ts`): Node version, libraries loadable, native canvas,
-   OCR model, folder layout (data not inside originals), evidence folder, data folder
+3. **Search model**: download the local embedding model once (non-fatal when offline; the
+   app then uses the built-in LSA fallback and the launcher retries next time).
+4. **Prerequisites** (`src/app/prereqs.ts`): Node version, libraries loadable, native canvas,
+   OCR model, search model, folder layout (data not inside originals), evidence folder, data folder
    writable, disk space, privacy mode. A FAIL stops start-up with a plain-language fix.
-4. **Start or reopen**: if the port is held by this app (checked via `/api/health`), the
+5. **Start or reopen**: if the port is held by this app (checked via `/api/health`), the
    launcher just reopens the browser. Otherwise it starts the server on `127.0.0.1` and opens
    the browser.
 
@@ -156,17 +178,56 @@ App security for a single-user local tool:
 - every import also compares a manifest taken before and after the run, which proves the
   originals were untouched.
 
-## 7. Planned milestones
+## 7. Retrieval and analysis design (Milestones 2–6)
 
-| # | Scope | Notes |
-| --- | --- | --- |
-| 1 | Immutable ingestion | **Done.** See `docs/poc-results.md`. |
-| 2 | Retrieval | In-process hybrid: BM25 over chunks (with exact-phrase and reference/ID matching for names, dates, "Article 24", case references), plus local sentence embeddings via `@huggingface/transformers` (ONNX, model files stored locally, multilingual e5-small class). Reciprocal-rank fusion and optional local cross-encoder reranking. Filters: matter, type, date range, author. Results carry `evidence_id, filename, page, heading, chunk_id, score, retrieval_method`. |
-| 3 | Grounded Q&A + verification | LLM is optional and **off by default** (`ALLOW_EXTERNAL_LLM=false`). Local inference (e.g. Ollama/llama.cpp HTTP on localhost) preferred. Citation verifier compares claims with the stored chunk text (exact/normalised quote match, then lexical overlap, then optional NLI/LLM check) and returns VERIFIED / PARTIALLY_SUPPORTED / UNSUPPORTED / SOURCE_ERROR. Refuses with "Insufficient evidence found in the indexed corpus." when retrieval is weak. |
-| 4 | Analysis | Deterministic services first: chronology from dated chunks and email timestamps (explicit vs inferred dates kept apart); position comparison grouped by issue; potentially-unaddressed evidence (items raised in a submission, searched in the decision, classified cautiously, always labelled probabilistic). |
-| 5 | MCP / Hermes, app screens | Local app shell, corpus, import and originals check are **done** (§6). Still to do: search/ask/timeline/compare screens; stdio MCP server (`@modelcontextprotocol/sdk`) exposing read-only `legal_*` tools; example `docs/hermes-mcp-example.yaml` for `~/.hermes/config.yaml` `mcp_servers`. |
-| 6 | Evaluation | `tests/eval/gold_cases.yaml` (≥ 20 questions), metrics in `docs/evaluation.md`, results in `docs/poc-results.md`. |
+**Retrieval** (`src/retrieval/`)
+- *Lexical:* BM25 over chunk text, with document title and heading path as context.
+  - Tokens keep references whole and in parts (`ART24-2025-0012`), add anchors (`Article 24` → `art:24`, `Annex A.5` → `annex:a5`) and normalised dates (`17 January 2025` and `2025-01-17` → `date:2025-01-17`), expand abbreviations (`Ref.`) and apply light inflectional and derivational stemming.
+  - Fact tokens weigh double; a recognised date's loose parts count little.
+  - A coordination factor rewards chunks matching more distinct query terms. Weak matches, below a share of the query terms or 15 % of the best score, are dropped before fusion.
+  - `"Quoted phrases"` are mandatory exact matches.
+- *Semantic:* sentence embeddings from a local ONNX model (`all-MiniLM-L6-v2` by default, `multilingual-e5-small` optional) via transformers.js. They are cached per chunk and text hash.
+  - The model is downloaded once, from Hugging Face with a pinned-checksum mirror as fallback, and recorded in `models/<id>/model.json` with each file's SHA-256.
+  - At run time remote loading is disabled.
+  - Alternatives: a local Ollama embedding endpoint, or a built-in LSA (TF-IDF + truncated eigendecomposition) when no model is installed.
+- *Fusion:* reciprocal rank fusion. For fact-heavy queries (dates, references) the semantic list is down-weighted.
+- *Filters* (on the effective, human-corrected metadata): matter, document type, date range, author, Evidence IDs.
 
+**Citation verification** (`analysis/verification.ts`) is deterministic.
+- It checks, in order:
+  1. Source, page and chunk existence (else SOURCE_ERROR).
+  2. Quote presence on the cited page. It is OCR-tolerant, and a quote found on another page is reported as such; a quote that cannot be found makes the citation UNSUPPORTED.
+  3. Support for the claim, judged against the single sentence that best matches the claim's subject, with 2–3-sentence windows only as fallback. It looks at content-word and key-fact coverage, negation mismatch, conflicting dates and legal-outcome antonyms (granted vs rejected).
+- Paraphrase support needs high semantic similarity *and* all key facts present.
+
+**Grounded answers** (`analysis/answer.ts`)
+- Questions are typed (date, amount, count, reference, person, statement).
+- Candidate sentences must contain the expected kind of fact and are scored by rarity-weighted coverage of the question terms, with heading and title as context.
+- The evidence is insufficient below 50 % weighted coverage, or when a question word that never occurs in the corpus is not bridged by a strong paraphrase. The answer is then *"Insufficient evidence found in the indexed corpus."*
+- Corroborating sentences must state the same fact.
+- Performative statements ("is opened", "is hereby rejected") are dated by their document, and the date line is cited.
+- In the optional LLM mode, the model must return claims with numbered-passage citations and verbatim quotes. Each is verified; unsupported claims are removed and listed. The versioned system prompt is `config/prompts/legal-analysis-system.v1.md`.
+
+**Chronology** (`analysis/chronology.ts`)
+- Events come from three sources, each labelled with its date type and the date as written:
+  - explicitly dated sentences (letterhead lines excluded);
+  - email sent timestamps;
+  - document dates, with unlabelled ones marked `inferred`.
+- Duplicate events are merged. Confidence comes from primary-source corroboration (working notes count as secondary) and OCR quality.
+- Every citation is verified, and events without a verified citation are dropped.
+- The analysis is scoped to a matter inferred from the question when possible.
+
+**Comparison** (`analysis/comparison.ts`)
+- *Propositions:* sentences with a verb that are relevant to the issue (semantic or rarity-weighted lexical). Each document's best statement is kept, plus up to two more above a stricter threshold, ordered by document date.
+- *Pairs* across documents are labelled by topical similarity, shared issue concepts (capitalised names excluded) and polarity. *Potential contradiction* requires opposite polarity, close similarity and at least two shared concepts.
+- Explanations are neutral, with a mandatory human-review caveat.
+
+**Unaddressed evidence** (`analysis/unaddressed.ts`)
+- *Items:* annex/exhibit references in the submission (`Annex B: …`, `Annex A.5: …`) plus other files attached to the email that carried it.
+- *Target:* each target sentence is searched for the item's label anchor, its distinctive description terms, and semantic similarity to the description.
+- *Classes:* addressed (named, with assessment language nearby), referenced only, partially addressed, uncertain, no treatment found. Each comes with a confidence, an explanation, the closest passage, the sections searched and a probabilistic warning.
+
+**Evaluation** (`evaluation/runner.ts`): see `docs/evaluation.md`.
 ## 8. Dependencies (resolved October 2026)
 
 Runtime (Node.js ≥ 20.12; tested on 22.22):
@@ -187,8 +248,15 @@ Runtime (Node.js ≥ 20.12; tested on 22.22):
 | yaml | 2.x | Configuration |
 | commander | 15.x | CLIs |
 | tsx | 4.x | Runs the TypeScript sources directly (launcher and CLIs) |
+| @huggingface/transformers | 4.3.x | Local sentence embeddings (ONNX Runtime) |
+| @modelcontextprotocol/sdk | 1.32.x | MCP server (stdio) |
+| tar | 7.x | Unpacking the search-model archive at setup |
 
 Development: typescript 7, vitest 5, pdfkit and docx (sample corpus generation only).
+
+Size: transformers.js brings `onnxruntime-node` (native binaries for all platforms, about
+290 MB) and `onnxruntime-web` (about 140 MB). The launcher skips onnxruntime-node's optional
+CUDA download (`ONNXRUNTIME_NODE_INSTALL=skip`), because the POC is CPU-only.
 
 Known advisory: `npm audit` reports a moderate issue in `sprintf-js`, pulled in via
 `argparse`, which mammoth uses only for its own command-line tool. It does not affect library
@@ -196,8 +264,14 @@ use. Keep an eye on mammoth releases.
 
 ## 9. Privacy and security
 
-- Local-first: no network access at runtime. The OCR model is bundled.
-- No document text in logs: the audit log holds IDs, hashes, statuses and short errors only (tested).
-- `.env` is gitignored, and `data/originals`, generated data and logs are gitignored.
-- Future services bind to `127.0.0.1` by default. External LLMs require an explicit
-  `ALLOW_EXTERNAL_LLM=true`.
+- **Local-first.** At run time nothing is fetched and no document content leaves the
+  machine. Models (OCR, embeddings) are local files, downloaded once at setup (the search model
+  by the launcher), with recorded checksums.
+- **No document text in logs.** The audit log holds IDs, hashes, statuses and short errors;
+  queries are logged as SHA-256 hashes (tested).
+- **Git hygiene.** `.env`, evidence, generated data, models and logs are gitignored.
+- **Local app only.** The web app binds to `127.0.0.1` and rejects foreign Host/Origin
+  headers. State-changing requests need a custom header. Originals are served read-only.
+- **No write access over MCP.** MCP tools are read-only.
+- **LLMs.** They are off by default. Embedding or LLM endpoints that are not on localhost are
+  refused unless `ALLOW_EXTERNAL_LLM=true`; API keys come from `.env` and are never logged.

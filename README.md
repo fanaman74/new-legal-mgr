@@ -22,157 +22,166 @@ It is **not** a production legal platform and it does not give legal advice.
      nodejs.org;
    - installs the application libraries (later runs reuse them and download only what is
      missing or changed);
+   - downloads the local search model once (about 25–90 MB). If you are offline, the app uses
+     a simpler built-in semantic search and retries next time;
    - checks the prerequisites and opens the app in your browser at `http://127.0.0.1:8787/`.
 4. In the app, click **Open evidence folder**, copy your evidence files (copies) into it, then
-   click **Import evidence**. Click **Check originals unchanged** at any time to verify that
-   no original was modified.
+   click **Import evidence**.
 
 Double-clicking again while the app is running just reopens the browser page; it never starts
 a second copy. Close the setup window to stop the app. To try the app with the fictional
 sample corpus, run the launcher with `--sample` (or `npm run start:sample`).
 
+### What you can do in the app
+
+| Tab | What it does |
+| --- | --- |
+| **Evidence** | Prerequisites; import; *Check originals unchanged*; the corpus (Evidence ID, file, type, date, matter, status); per-document provenance, extracted text by page/section, *Open original*, and **Correct metadata** (audited, never touches the file). |
+| **Search** | Hybrid search: exact names, dates, references and `"quoted phrases"` plus meaning-based matches. Filters: matter, type, date range, author. Every hit shows Evidence ID, file, page/section and chunk. |
+| **Ask** | A question answered **only from the evidence**, quoting the supporting passage with page and verification status. Otherwise it says *"Insufficient evidence found in the indexed corpus."* |
+| **Timeline** | A cited chronology: dates stated in documents, emails sent, document dates. Inferred dates are marked, and confidence rises with corroboration. |
+| **Compare** | Statements on an issue from several documents, in chronological order, with suggested relations (consistent, changed wording, possible tension, potential contradiction) for human review. |
+| **Unaddressed evidence** | Which annexes/attachments raised in a submission are not treated in a decision, with confidence, explanation and the sections searched. Probabilistic. |
+| **Verify citation** | Checks a claim against its cited source: VERIFIED, PARTIALLY_SUPPORTED, UNSUPPORTED or SOURCE_ERROR, with reasons. |
+| **Evaluation** | Runs the gold question set on the fictional sample corpus (your evidence is not used) and shows the metrics. |
+
 ## Status
 
 | Milestone | State |
 | --- | --- |
-| 0 Inspect and plan (`docs/architecture.md`) | ✅ done |
-| 1 Immutable evidence ingestion (PDF, scanned PDF, DOCX, `.msg`, `.eml`, TXT/MD) | ✅ done, 56 tests |
-| 2 Retrieval (hybrid lexical + semantic, filters, provenance) | planned |
-| 3 Grounded Q&A and citation verification | planned |
-| 4 Chronology, comparison, potentially-unaddressed evidence | planned |
-| 5 Local web app (corpus, import, originals check) and double-click launchers | ✅ first part done |
-| 5 MCP server for Hermes, search/ask/timeline/compare screens | planned |
-| 6 Gold-set evaluation | planned |
+| 0 Inspect and plan | ✅ done (`docs/architecture.md`) |
+| 1 Immutable evidence ingestion (PDF, scanned PDF, DOCX, `.msg`, `.eml`, TXT/MD) | ✅ done |
+| 2 Retrieval: hybrid lexical + semantic, filters, page provenance | ✅ done |
+| 3 Grounded Q&A, citation verification, refusal | ✅ done (extractive by default; optional local LLM) |
+| 4 Chronology, position comparison, potentially-unaddressed evidence | ✅ done |
+| 5 MCP server for Hermes; local web app and double-click launchers | ✅ done (MCP tested with an MCP client; not yet with a live Hermes install) |
+| 6 Gold-set evaluation | ✅ done, results in [`docs/poc-results.md`](docs/poc-results.md) |
+
+All of this was evaluated on a **fictional** corpus. Test it on a real 30–50-file corpus
+before drawing conclusions (see `docs/evaluation.md`).
 
 ## Architecture in one paragraph
 
 Everything runs in **Node.js (TypeScript), with no Docker and no Python**. Originals are
-hashed and registered under stable Evidence IDs. They are then parsed: PDFs with pdfjs-dist,
-scanned pages OCR'd locally with tesseract.js, DOCX with mammoth, `.msg` with msgreader and
-cfb, `.eml` with mailparser. The output is structural chunks with exact offsets, plus
-canonical JSON records. Email attachments are extracted to `data/attachments/` and ingested
-as evidence in their own right, linked to the parent email. See
-[`docs/architecture.md`](docs/architecture.md) for the design, the dependency list and how
-this deviates from the original brief (RAGFlow and Docling are replaced by in-process
-components).
+hashed and registered under stable Evidence IDs, then parsed: PDFs with pdfjs-dist, scanned
+pages OCR'd locally with tesseract.js, DOCX with mammoth, `.msg` with msgreader and cfb,
+`.eml` with mailparser. The output is structural chunks with exact offsets, plus canonical
+JSON records. Retrieval fuses BM25 (legal-aware tokens for references, articles, annexes and
+dates) with local sentence embeddings (transformers.js + ONNX, offline). Answers, chronology,
+comparison and unaddressed-evidence analysis are deterministic services whose every output
+cites, and is verified against, the source text. The same services are exposed to the web
+app and, read-only, to Hermes over MCP. See [`docs/architecture.md`](docs/architecture.md),
+including how this deviates from the original brief (RAGFlow and Docling are replaced by
+in-process components).
 
 ## Prerequisites
 
-- **Node.js 20.12 or newer** (tested on 22 LTS) with npm. Nothing else: no Docker, no Python,
-  no system OCR install. Works on Windows, macOS and Linux.
-- About 400 MB of disk space for `node_modules` (OCR model included).
-
-## Setup from a terminal (developers)
-
-```bash
-npm install
-cp .env.example .env        # optional; the defaults work without it (Windows: copy .env.example .env)
-npm test                    # optional: runs the test suite
-```
+- **Node.js 20.12 or newer** (tested on 22 and 24), which the launchers can download for you.
+  No Docker, no Python, no system OCR. Works on Windows, macOS and Linux.
+- About 1 GB of disk space (libraries, including ONNX Runtime for all platforms; OCR and
+  search models).
 
 ## Where to put evidence: the read-only rule
 
-Put **copies** of your test files in `data/originals/`. Sub-folders are allowed and
-recommended. A folder name listed in `config/matters.yaml` (e.g. `article24/`) assigns that
-matter to everything inside it.
+Put **copies** of your evidence in `data/originals/` (the app's **Open evidence folder**
+button opens it). Sub-folders are recommended. A folder name listed in `config/matters.yaml`
+(e.g. `article24/`) assigns that matter to everything inside it.
 
 ```text
 data/originals/
   article24/   decisions, requests, acknowledgements, annexes…
+  article90/   complaint and reply
   audit/       audit / IAS material
+  court/       court pleadings
   emails/      .msg and .eml files
-  lawyer/      lawyer correspondence and court documents
+  lawyer/      lawyer correspondence
 ```
 
 `data/originals/` is **read-only for the application**. Code never renames, moves, deletes,
 edits, overwrites or converts anything there: all writes go through a guard that refuses
-paths inside it. Generated files go to `data/extracted`, `data/canonical`,
-`data/attachments` and `data/indexes`. For extra safety, also make the folder read-only in
-your operating system. Everything under `data/` (except `.gitkeep`) is gitignored. Never
-commit evidence.
+paths inside it, and every import compares a manifest taken before and after the run.
+Generated files go to `data/extracted`, `data/canonical`, `data/attachments` and
+`data/indexes`. For extra safety, also make the folder read-only in your operating system.
+Everything under `data/` (except `.gitkeep`) is gitignored. Never commit evidence.
 
-To try the POC without real documents, generate a small, entirely fictional corpus:
+## Connecting Hermes (MCP)
 
-```bash
-npm run sample-corpus                                                      # writes data/sample-originals/
-npm run ingest -- --originals data/sample-originals --data data/sample-data
-npm run corpus -- --data data/sample-data
-```
+The MCP server exposes eight **read-only** tools: `legal_search`, `legal_get_document`,
+`legal_get_passage`, `legal_ask`, `legal_build_chronology`, `legal_compare_positions`,
+`legal_find_unaddressed_evidence` and `legal_verify_citation`. None of them can write,
+rename or delete evidence.
 
-Using a separate `--data` directory keeps the fictional evidence out of your real registry.
+1. Import your evidence with the app first (the MCP server serves what has been imported).
+2. Copy the `mcp_servers` block from [`docs/hermes-mcp-example.yaml`](docs/hermes-mcp-example.yaml)
+   into `~/.hermes/config.yaml` and replace `/path/to/legal-evidence-poc` with this folder.
+3. Restart Hermes. The tools appear with Hermes' server prefix
+   (e.g. `mcp_legal_evidence_legal_search`).
 
-## Ingestion
+The server runs as `node node_modules/tsx/dist/cli.mjs scripts/mcp.ts` (stdio), which is
+what Hermes starts. Developers can run it with `npm run mcp`.
 
-```bash
-npm run check-originals -- create   # record name/size/mtime/SHA-256 of every original
-npm run ingest                      # ingest everything under data/originals
-npm run corpus                      # table: Evidence ID, filename, type, date, matter, status
-npm run corpus -- --id EVID-000003  # one full record, plus its relationships
-npm run check-originals -- verify   # prove that nothing in data/originals changed
-```
+## Optional: generative answers with a local LLM
 
-Options: `npm run ingest -- --force` re-parses everything, and `--no-ocr` skips OCR.
-Re-running ingestion is idempotent. New files get new IDs. A duplicate or renamed copy keeps
-its existing Evidence ID and is recorded as an alias. A file that fails to parse is recorded
-(`status: failed`) without stopping the batch.
-
-Outputs per document: `data/canonical/EVID-NNNNNN.json`, plus `data/extracted/EVID-NNNNNN.md`,
-`.chunks.jsonl` and `.structure.json`. The format is described in
-[`docs/evidence-schema.md`](docs/evidence-schema.md).
-
-### Correcting metadata
-
-Machine-extracted dates, types and matters are deliberately conservative and may be wrong.
-Corrections are stored separately, override the machine value, and are audited. The original
-file and the machine record are never modified:
+By default, answers are **extractive**: quoted verbatim from the evidence and verified, with
+no language model involved. To let a local model phrase answers, run e.g.
+[Ollama](https://ollama.com) and set in `.env`:
 
 ```bash
-npm run correct -- --id EVID-000003 --field document.date --value 2025-05-12 --reason "date confirmed from page 1"
-npm run correct -- --id EVID-000007 --field document.matter --value "article24,article90" --reason "annex to both"
+LLM_PROVIDER=ollama
+LLM_URL=http://127.0.0.1:11434
+LLM_MODEL=llama3.1:8b
 ```
 
-## Asking questions, timelines, comparison, MCP/Hermes, evaluation
+The model must return claims with citations. Every citation is verified, and claims that fail
+are removed and listed separately. A non-local endpoint is refused unless
+`ALLOW_EXTERNAL_LLM=true`, because the request contains document text.
 
-These are Milestones 2–6 and are **not implemented yet**. The plan is in
-[`docs/architecture.md`](docs/architecture.md) §6 and [`docs/evaluation.md`](docs/evaluation.md).
-In summary:
+## Evaluation
 
-- Search, Ask, Timeline and Compare screens in the local app; `npm run mcp` (a stdio MCP server
-  with read-only `legal_*` tools: search, get passage, chronology, compare, verify citation).
-- Hermes will connect through `~/.hermes/config.yaml` → `mcp_servers`. An example will be
-  provided in `docs/hermes-mcp-example.yaml`.
-- `npm run eval` will run `tests/eval/gold_cases.yaml` and report recall, page correctness and
-  citation accuracy.
+Click **Run evaluation** in the app, or run `npm run eval` (`--write-docs` updates
+`docs/poc-results.md`). It runs `tests/eval/gold_cases.yaml` (30 cases) on the fictional
+sample corpus in a separate workspace. For your own corpus, write a gold file in the same
+format and run `npm run eval -- --corpus current --gold <file>`. See
+[`docs/evaluation.md`](docs/evaluation.md).
 
 ## Data protection and privacy
 
-- **Local-first**: no network access at runtime, and OCR runs locally with a bundled model.
-  No telemetry.
+- **Local-first**: no network access at run time. The OCR and search models are local files,
+  downloaded once at setup. No telemetry.
+- The web app listens on `127.0.0.1` only, rejects foreign Host/Origin headers, and requires a
+  custom header for actions.
 - No document text in logs: `logs/audit.jsonl` records IDs, hashes, statuses and short
-  errors only.
-- `.env`, evidence, generated data and logs are gitignored.
-- External LLMs (later milestones) are **off by default** and need an explicit
-  `ALLOW_EXTERNAL_LLM=true`.
-- Future services bind to `127.0.0.1` only.
+  errors. Queries are logged only as a hash.
+- `.env`, evidence, generated data, models and logs are gitignored.
+- LLMs are off by default; external ones need an explicit `ALLOW_EXTERNAL_LLM=true`.
 
 ## Known limitations
 
-See [`docs/poc-results.md`](docs/poc-results.md). The main ones: PDF layout reconstruction is
-heuristic (multi-column layouts and complex tables are not handled as well as Docling would);
-OCR is English-only by default; dates, document types and matters are rule-based and need
-human review; RTF-only `.msg` bodies are not decoded.
+See [`docs/poc-results.md`](docs/poc-results.md). The main ones:
+- **Evaluated on fictional data only.** The gold set was also used during development; the
+  held-out set's first run (11/14) is the more honest estimate.
+- **Verifier.** It is deterministic and conservative: loose paraphrases may come out
+  UNSUPPORTED.
+- **Comparison.** Lower-severity relation labels are noisy.
+- **Layout.** PDF layout reconstruction is heuristic (multi-column layouts and complex
+  tables).
+- **OCR and languages.** OCR is English-only by default, and the default search model is
+  English (`multilingual-e5-small` is available).
+- **Metadata.** Dates, types and matters are rule-based and need human review.
 
-## Commands
+## Commands (developers)
 
 | Command | Purpose |
 | --- | --- |
 | `npm start` | Check prerequisites, start the app and open the browser (what the launchers run) |
 | `npm run start:sample` | The same, with the fictional sample corpus |
-| `npm install` | Install dependencies |
-| `npm test` | Unit + integration tests |
-| `npm run typecheck` | TypeScript type check |
-| `npm run ingest` | Ingest `data/originals` |
-| `npm run corpus` | List ingested evidence |
+| `npm install` / `npm test` / `npm run typecheck` | Install, test, type-check |
+| `npm run ingest` | Import `data/originals` (`--force` to re-parse, `--no-ocr`) |
+| `npm run corpus` | List imported evidence (`-- --id EVID-000003` for one record) |
 | `npm run check-originals -- create\|verify` | Originals manifest |
-| `npm run correct -- …` | Human metadata correction |
+| `npm run correct -- --id … --field … --value … --reason …` | Human metadata correction |
+| `npm run search -- "query"` / `npm run ask -- "question"` | Search / grounded answer |
+| `npm run mcp` | MCP server (stdio) for Hermes |
+| `npm run eval` | Gold-set evaluation |
+| `npm run setup-models` | Download the local search model |
 | `npm run sample-corpus` | Generate the fictional demo corpus |

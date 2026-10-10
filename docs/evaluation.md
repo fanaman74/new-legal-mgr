@@ -1,81 +1,84 @@
-# Evaluation plan
+# Evaluation
 
 The POC is judged on **retrieval and provenance**, not on whether generated prose sounds right.
-Results go into `docs/poc-results.md`, including the failures.
+Results, including failures, are in `docs/poc-results.md`.
 
-## Corpus
+## How to run
 
-- 30–50 representative files copied into `data/originals/` (copies only; never the master archive):
-  5–8 official decisions/responses, 5–8 complaints/submissions, 3–5 investigation/audit reports,
-  5–10 lawyer/court documents, 8–12 emails (`.msg` and `.eml`), several annexes/attachments,
-  and 2–4 scanned documents.
-- Choose documents that overlap factually (the same events, dates and annexes referred to
-  in several places), so that cross-document behaviour is tested.
-- The synthetic corpus from `npm run sample-corpus` is for development and automated tests
-  only. It is not the evaluation corpus.
+- In the app: **Evaluation** tab → **Run evaluation**.
+- Terminal: `npm run eval`. Options:
+  - `--fresh` rebuilds the evaluation workspace;
+  - `--write-docs` updates the generated block in `docs/poc-results.md`;
+  - `--gold <file>` uses another case file;
+  - `--corpus current` evaluates the configured corpus instead of the sample.
 
-## Gold set: `tests/eval/gold_cases.yaml` (Milestone 6)
+By default the runner works on the **fictional sample corpus**, in an isolated workspace
+(`data/eval-sample/`). It generates the corpus, imports it and runs every case. It also
+manifests the originals before and after the run, to prove that nothing was modified. Your own
+evidence and indexes are never used or touched.
 
-At least 20 manually curated questions:
+## Case files
 
-| Category | Count | ID prefix |
-| --- | --- | --- |
-| Exact factual questions | 5 | `FACT-` |
-| Chronology questions | 5 | `CHRON-` |
-| Cross-document comparison | 4 | `CMP-` |
-| Potentially-unaddressed evidence | 3 | `UNADD-` |
-| Citation-verification tests (including deliberately wrong citations) | 3 | `CITE-` |
+| File | Purpose |
+| --- | --- |
+| `tests/eval/gold_cases.yaml` | 30 hand-curated cases: 7 exact facts, 5 chronologies, 4 comparisons, 3 unaddressed-evidence analyses, 8 citation tests (5 deliberately wrong or degraded), 3 questions that must be refused. Used during development. |
+| `tests/eval/holdout_cases.yaml` | 14 cases written after development and run **once** before any further change, to estimate overfitting. Do not tune against them; add new held-out cases instead. |
 
-Schema:
+Expected evidence is given by file path (`files:`), or `attachment:<name>` for extracted
+attachments. The runner resolves these to Evidence IDs through the registry, so cases don't
+depend on ID allocation. For a real corpus with a fixed registry, `evidence_ids:` can be
+used directly. Several acceptable sources may be listed.
 
 ```yaml
-- id: FACT-001
-  question: "When was the Article 24 request registered?"
+- id: FACT-002
+  category: fact
+  question: "Under which reference was the request for assistance registered?"
   expected:
-    evidence_ids: [EVID-000002]          # any of these counts as a hit; list all acceptable sources
-    pages: [1]                            # for paginated sources
-    required_terms: ["20 January 2025"]  # must appear in the answer and in the cited passage
-  notes: "Acknowledgement letter, labelled date."
+    files: [article24/2025-01-20_acknowledgement_of_registration.pdf, article24/2025-05-12_decision_on_request_for_assistance.pdf]
+    pages: [1]
+    required_terms: ["ART24-2025-0012"]
 
 - id: CITE-002
-  claim: "The decision addresses the witness statement of Ms Rossi."
-  citation: { evidence_id: EVID-000003, page: 1 }
-  expected_status: UNSUPPORTED            # VERIFIED | PARTIALLY_SUPPORTED | UNSUPPORTED | SOURCE_ERROR
+  category: citation
+  claim: "The request was registered on 21 January 2025."
+  citation: { file: article24/2025-05-12_decision_on_request_for_assistance.pdf, page: 1 }
+  expected_status: UNSUPPORTED
 ```
 
-Gold cases reference Evidence IDs. These are stable for a given registry
-(`data/indexes/evidence-registry.json`), so keep the registry together with the evaluation
-corpus.
+Other categories: `chronology` (expected `events` with date + acceptable files), `comparison`
+(expected `pairs` of files with acceptable relations; a pair expected to be consistent fails
+if it is flagged as a potential contradiction), `unaddressed` (`sources`, `targets`, expected
+classification per annex label), `insufficient` (must be refused).
 
-## Metrics
+## Metrics (as implemented)
 
 | Metric | Definition | Target |
 | --- | --- | --- |
-| Top-10 recall | Share of questions where an expected Evidence ID is in the top 10 results | ≥ 90 % |
-| Top-5 recall | Same, top 5 | ≥ 80 % |
-| Page correctness | For paginated expected sources: the returned chunk's page is an expected page | report |
-| Citation-support accuracy | Verifier status matches the gold label / the cited passage really supports the claim | ≥ 95 % |
-| Unsupported-claim rate | Material generated claims without a valid supporting citation | ≤ 5 % |
-| Chronology precision | Timeline events supported by their cited evidence | report |
-| Contradiction quality | Manual rating per finding: correct / plausible / overstated / wrong | report |
-| Latency | Approximate wall time per query type | report only |
-| Original evidence modification | `npm run check-originals -- verify` after all runs | zero changes |
+| Top-10 / top-5 recall | Share of fact, chronology and comparison questions for which an expected Evidence ID appears in the top 10 / top 5 search results for the question | ≥ 90 % / ≥ 80 % |
+| Page correctness | For the highest-ranked expected source that is paginated: its page is one of the expected pages | report |
+| Exact-fact answer accuracy | The answer contains every required term and cites at least one expected source | report |
+| Citation-support accuracy | (citation tests whose status matches the expected status + answer citations that are VERIFIED **and** whose cited passage itself contains a required term) ÷ all of them | ≥ 95 % |
+| Unsupported-claim rate | Answer claims whose citation is not VERIFIED/PARTIALLY_SUPPORTED ÷ all answer claims | ≤ 5 % |
+| Chronology precision | Events with at least one VERIFIED citation ÷ all events produced | report |
+| Chronology expected-event recall | Expected events found (same date, cited from an acceptable file) ÷ expected events | report |
+| Comparison relations | Expected pairs found with an acceptable relation | report |
+| Unaddressed-evidence accuracy | Annexes classified as expected ÷ annexes | report |
+| Refusals | Questions without an answer in the corpus that are refused | all |
+| Originals unchanged | Manifest (name, size, mtime, SHA-256) identical before and after the run | must be true |
+| Latency | Mean wall time per case and category | report |
 
-## Procedure
+**Contradiction quality** is rated **manually** (correct / plausible / overstated / wrong) on
+the suggested relations. A rating sheet is in `docs/poc-results.md`.
 
-1. `npm run check-originals -- create` before the first ingestion.
-2. `npm run ingest`. Review `npm run corpus` and correct obviously wrong metadata with
-   `npm run correct` (corrections are logged and kept separate).
-3. Run the gold set (Milestone 6: `npm run eval`). It writes per-question results and
-   aggregate metrics.
+## Evaluating a real corpus
+
+1. Copy 30–50 representative files into `data/originals/` and import them in the app.
+2. Write `my_gold.yaml` (≥ 20 cases) in the format above, referencing your files by
+   path under `data/originals`.
+3. Run `npm run eval -- --corpus current --gold my_gold.yaml`.
 4. Rate the comparison and unaddressed-evidence outputs manually.
-5. `npm run check-originals -- verify` must report no changes.
-6. Record the results, the failures and their likely causes in `docs/poc-results.md`.
+5. Click **Check originals unchanged** (or `npm run check-originals -- verify`).
+6. Record results and failures in `docs/poc-results.md`.
 
-## Milestone 1 checks (automated today)
-
-`npm test` already verifies the ingestion acceptance criteria on the synthetic corpus: originals
-unchanged (name, size, mtime, SHA-256), duplicate and rename detection, `.msg`/`.eml` metadata,
-attachment linkage (including embedded messages), OCR of scanned pages, page numbers on all
-PDF chunks, no invented page numbers elsewhere, exact chunk offsets, failures recorded without
-stopping the batch, and no document content in the audit log.
+Keep a held-out subset you only run once at the end. Results on cases you tuned against are
+optimistic.

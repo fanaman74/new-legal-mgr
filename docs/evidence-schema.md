@@ -190,3 +190,57 @@ Correctable fields: `document.title`, `document.document_type`, `document.matter
 Corrections are stored separately and applied as an overlay (`applyCorrections`): the latest
 correction per field wins. The effective record lists `corrections_applied`, with the machine
 value that was overridden. Neither the original file nor the canonical record is modified.
+
+## Retrieval and analysis outputs
+
+These are the JSON shapes returned by the app API, the MCP tools and the services. The
+authoritative definitions are the TypeScript interfaces in `src/retrieval/search.ts` and
+`src/analysis/*.ts`.
+
+**Search result** (`legal_search`, `/api/search`; example values):
+
+```jsonc
+{
+  "evidence_id": "EVID-000003", "filename": "2025-05-12_decision_on_request_for_assistance.pdf",
+  "page": 1, "section_id": null, "heading": "1. Procedure",
+  "text": "1. Procedure\n\nOn 17 January 2025 Ms Jane Doe submitted ...",
+  "score": 0.977,                              // fused score, 1 = top-ranked by every method
+  "retrieval_method": ["lexical", "semantic"],
+  "chunk_id": "EVID-000003-P001-C02", "paragraph_ids": ["P001-B003", "P001-B004"],
+  "char_start": 71, "char_end": 312,
+  "document_date": "2025-05-12", "document_type": "official_decision", "title": "…", "matter": ["article24"],
+  "source_path": "originals/article24/…", "ocr": false, "ocr_confidence": null,
+  "query_coverage": 0.8
+}
+```
+
+**Citation verification** (`legal_verify_citation`, `/api/verify`):
+
+```jsonc
+{
+  "status": "UNSUPPORTED",                     // VERIFIED | PARTIALLY_SUPPORTED | UNSUPPORTED | SOURCE_ERROR
+  "evidence_id": "EVID-000003", "filename": "…", "page": 1, "chunk_id": "EVID-000003-P001-C02",
+  "supporting_passage": "The request was registered on 20 January 2025.",
+  "quote_check": "not_provided",               // exact | near | found_on_other_page | not_found | not_provided
+  "scores": { "content_coverage": 0.8, "key_fact_coverage": 0.5, "semantic_similarity": 0.97 },
+  "reasons": ["the cited passage gives a different date (2025-01-20)"]
+}
+```
+
+**Answer** (`legal_ask`, `/api/ask`): `status` (`answered` | `insufficient_evidence`),
+`answer`, `claims[]` (each with `citations[]`: Evidence ID, page/section, chunk, verbatim
+`quote` and `verification`), `rejected_claims[]` (LLM mode), `mode` (`extractive` | `llm`),
+`llm` (`provider`, `model`, `prompt_version`), the overall `verification`, a `formatted`
+text version in the brief's answer format, and `notes`.
+
+**Chronology event**: `date`, `date_type` (`explicit` | `email_sent` | `document_date`),
+`date_text`, `inferred`, `event`, `citations[]` (with verification), `confidence`,
+`corroborating_documents`, `notes`.
+
+**Comparison**: `documents[]` (chronological) with `propositions[]` (`id`, verbatim `text`,
+`polarity`, citation), `pairs[]` (`a`, `b`, `relation`, `similarity`, `confidence`,
+`explanation`), and the `caveat`.
+
+**Unaddressed evidence**: `sources`, `targets`, `sections_searched[]`, and `items[]` (`label`,
+`description`, `raised_in[]`, `item_evidence_id`, `classification`, `confidence`,
+`explanation`, `best_match`), plus the `warning`.
