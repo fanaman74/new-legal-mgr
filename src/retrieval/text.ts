@@ -16,6 +16,7 @@ const STOPWORDS = new Set(
     "itself me my of on or our ours she should so than that the their them then there these they this those to too under until up very was we were what " +
     "when where which while who whom why will with would you your yours also any each about against between both during further more most other own same " +
     "some such only once here all no nor not off out over again ever per via upon " +
+    "before after above below among within across along around behind beside beyond toward towards onto since whether though although because unless while whereas thus hence therefore however " +
     "le la les un une des du de et en dans pour par sur au aux ce ces cette est sont qui que"
   ).split(/\s+/),
 );

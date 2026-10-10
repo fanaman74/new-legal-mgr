@@ -59,6 +59,27 @@
   .detail-empty { color: var(--muted); padding: 30px 0; text-align: center; }
   .stats { display: flex; gap: 18px; flex-wrap: wrap; margin-top: 10px; font-size: 13.5px; }
   .stats b { font-size: 16px; }
+  nav.tabs { display: flex; gap: 4px; padding: 0 24px; background: var(--panel); border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+  nav.tabs button { border: none; border-bottom: 2px solid transparent; border-radius: 0; background: none; padding: 10px 12px; color: var(--muted); }
+  nav.tabs button.active { color: var(--text); border-bottom-color: var(--accent); font-weight: 600; }
+  .tab[hidden] { display: none !important; }
+  .tab { display: grid; gap: 16px; }
+  form.query { display: grid; gap: 10px; }
+  form.query .fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; }
+  label.f { display: grid; gap: 3px; font-size: 12.5px; color: var(--muted); }
+  input[type=text], input[type=date], input[type=number], select, textarea { font: inherit; font-size: 14px; padding: 6px 9px; border: 1px solid var(--border); border-radius: 7px; background: var(--panel); color: var(--text); width: 100%; }
+  textarea { min-height: 60px; resize: vertical; }
+  .result { border: 1px solid var(--border); border-radius: 9px; padding: 10px 12px; margin: 8px 0; }
+  .result .meta { font-size: 12.5px; color: var(--muted); display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .result .text { white-space: pre-wrap; margin-top: 6px; font-size: 14px; }
+  blockquote { margin: 6px 0; padding: 4px 10px; border-left: 3px solid var(--accent); background: var(--code); border-radius: 0 6px 6px 0; white-space: pre-wrap; }
+  .answer { font-size: 16px; font-weight: 600; margin: 4px 0 8px; }
+  .chip { display: inline-flex; gap: 6px; align-items: center; font-size: 12.5px; padding: 2px 8px; border: 1px solid var(--border); border-radius: 999px; margin: 2px 4px 2px 0; }
+  .timeline-row { display: grid; grid-template-columns: 110px 1fr; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--border); }
+  .timeline-row .date { font-weight: 600; font-variant-numeric: tabular-nums; }
+  .cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
+  .spinner { color: var(--muted); font-style: italic; }
+  .warning-box { background: var(--warn-bg); color: var(--warn); padding: 8px 12px; border-radius: 8px; font-size: 13.5px; margin: 8px 0; }
 </style>
 </head>
 <body>
@@ -67,7 +88,18 @@
   <span class="sub">proof of concept · runs locally · originals are read-only</span>
   <span id="status-pill" class="pill warn">Checking…</span>
 </header>
+<nav class="tabs" id="tabs" aria-label="Sections">
+  <button data-tab="evidence" class="active">Evidence</button>
+  <button data-tab="search">Search</button>
+  <button data-tab="ask">Ask</button>
+  <button data-tab="timeline">Timeline</button>
+  <button data-tab="compare">Compare</button>
+  <button data-tab="unaddressed">Unaddressed evidence</button>
+  <button data-tab="verify">Verify citation</button>
+  <button data-tab="evaluation">Evaluation</button>
+</nav>
 <main>
+<div class="tab" id="tab-evidence">
   <section class="card" id="prereq-card">
     <div class="row" style="justify-content: space-between;">
       <h2 style="margin:0">Prerequisites</h2>
@@ -103,10 +135,115 @@
           <tbody id="corpus"></tbody>
         </table>
       </div>
-      <p class="muted" style="font-size:13px;margin:10px 0 0">Search, Ask, Timeline and Compare will be added in the next milestones.</p>
+      <p class="muted" style="font-size:13px;margin:10px 0 0">Select a row to see provenance, extracted text and corrections. Use the tabs above to search, ask questions and analyse the evidence.</p>
     </section>
     <section class="card" id="detail"><div class="detail-empty">Select a document to see its provenance.</div></section>
   </div>
+</div>
+
+<div class="tab" id="tab-search" hidden>
+  <section class="card">
+    <h2>Search the evidence</h2>
+    <form class="query" id="form-search">
+      <input type="text" name="query" placeholder='Names, dates, references (e.g. ART24-2025-0012) or a description; "quotes" for exact phrases' required>
+      <div class="fields">
+        <label class="f">Matter<select name="matter" class="facet-matters"><option value="">any</option></select></label>
+        <label class="f">Document type<select name="document_type" class="facet-types"><option value="">any</option></select></label>
+        <label class="f">Dated from<input type="date" name="date_from"></label>
+        <label class="f">Dated to<input type="date" name="date_to"></label>
+        <label class="f">Author contains<input type="text" name="author"></label>
+        <label class="f">Method<select name="mode"><option value="hybrid">hybrid (recommended)</option><option value="lexical">exact words only</option><option value="semantic">meaning only</option></select></label>
+      </div>
+      <div class="row"><button class="primary" type="submit">Search</button><span class="muted" id="search-info"></span></div>
+    </form>
+    <div id="search-results"></div>
+  </section>
+</div>
+
+<div class="tab" id="tab-ask" hidden>
+  <section class="card">
+    <h2>Ask a question</h2>
+    <p class="muted" style="margin:0 0 8px">Answers are taken from the evidence only, with verified citations. If the evidence is insufficient, the app says so instead of guessing.</p>
+    <form class="query" id="form-ask">
+      <input type="text" name="question" placeholder="e.g. When was the Article 24 request registered?" required>
+      <div class="row"><label class="f" style="min-width:200px">Matter<select name="matter" class="facet-matters"><option value="">any</option></select></label><button class="primary" type="submit">Ask</button></div>
+    </form>
+    <div id="ask-result"></div>
+  </section>
+</div>
+
+<div class="tab" id="tab-timeline" hidden>
+  <section class="card">
+    <h2>Chronology</h2>
+    <form class="query" id="form-timeline">
+      <input type="text" name="query" placeholder="e.g. Build the chronology of the Article 24 procedure" required>
+      <div class="fields">
+        <label class="f">Matter<select name="matter" class="facet-matters"><option value="">inferred from the question</option></select></label>
+        <label class="f">From<input type="date" name="date_from"></label>
+        <label class="f">To<input type="date" name="date_to"></label>
+      </div>
+      <div class="row"><button class="primary" type="submit">Build chronology</button></div>
+    </form>
+    <div id="timeline-result"></div>
+  </section>
+</div>
+
+<div class="tab" id="tab-compare" hidden>
+  <section class="card">
+    <h2>Compare positions</h2>
+    <form class="query" id="form-compare">
+      <input type="text" name="issue" placeholder="e.g. Did the Administration attribute the audit findings to Ms Doe personally?" required>
+      <div class="fields">
+        <label class="f">Limit to Evidence IDs (optional, comma-separated)<input type="text" name="evidence_ids" placeholder="EVID-000003, EVID-000007"></label>
+        <label class="f">Matter<select name="matter" class="facet-matters"><option value="">any</option></select></label>
+      </div>
+      <div class="row"><button class="primary" type="submit">Compare</button></div>
+    </form>
+    <div id="compare-result"></div>
+  </section>
+</div>
+
+<div class="tab" id="tab-unaddressed" hidden>
+  <section class="card">
+    <h2>Potentially unaddressed evidence</h2>
+    <p class="muted" style="margin:0 0 8px">Checks which items raised in a submission (annexes, attachments) are not treated in a decision. Experimental and probabilistic.</p>
+    <form class="query" id="form-unaddressed">
+      <div class="fields">
+        <label class="f">Submission(s): Evidence IDs<input type="text" name="source_evidence_ids" placeholder="default: complaints/submissions in the matter"></label>
+        <label class="f">Decision(s): Evidence IDs<input type="text" name="target_evidence_ids" placeholder="default: latest decision in the matter"></label>
+        <label class="f">Matter<select name="matter" class="facet-matters"><option value="">any</option></select></label>
+      </div>
+      <div class="row"><button class="primary" type="submit">Analyse</button></div>
+    </form>
+    <div id="unaddressed-result"></div>
+  </section>
+</div>
+
+<div class="tab" id="tab-verify" hidden>
+  <section class="card">
+    <h2>Verify a citation</h2>
+    <form class="query" id="form-verify">
+      <label class="f">Claim<textarea name="claim" required placeholder="The request was registered on 20 January 2025."></textarea></label>
+      <div class="fields">
+        <label class="f">Evidence ID<input type="text" name="evidence_id" required placeholder="EVID-000003"></label>
+        <label class="f">Page (PDF only)<input type="number" name="page" min="1"></label>
+        <label class="f">Chunk ID (optional)<input type="text" name="chunk_id"></label>
+      </div>
+      <label class="f">Quoted text (optional, checked verbatim)<textarea name="quoted_text"></textarea></label>
+      <div class="row"><button class="primary" type="submit">Verify</button></div>
+    </form>
+    <div id="verify-result"></div>
+  </section>
+</div>
+
+<div class="tab" id="tab-evaluation" hidden>
+  <section class="card">
+    <h2>Evaluation</h2>
+    <p class="muted" style="margin:0 0 8px">Runs the gold question set against the fictional sample corpus in a separate workspace (your evidence is not used or changed) and reports retrieval and citation metrics.</p>
+    <div class="row"><button class="primary" id="btn-eval">Run evaluation</button><span class="muted" id="eval-info"></span></div>
+    <div id="eval-result"></div>
+  </section>
+</div>
 </main>
 <script>
 "use strict";
@@ -233,6 +370,7 @@ async function showDetail(id) {
     chunks.length ? el("div", {}, chunks.map((c) => el("details", { class: "chunk" },
       el("summary", {}, el("span", { class: "mono" }, c.chunk_id), " · ", c.page ? `page ${c.page}` : `section ${c.section_id}`, c.heading ? ` · ${c.heading}` : "", c.ocr ? ` · OCR ${c.ocr_confidence}` : ""),
       el("pre", {}, c.text)))) : el("p", { class: "muted" }, "No extracted text."));
+  parts.push(correctionForm(r));
   if (relationships.length) {
     parts.push(el("h2", { style: "margin-top:14px" }, "Relationships"), el("ul", {}, relationships.map((x) => el("li", {}, evidLink(x.subject), ` ${x.predicate} `, evidLink(x.object)))));
   }
@@ -264,7 +402,7 @@ async function pollJob() {
   const running = job && job.status === "running";
   for (const b of ["btn-ingest", "btn-reparse", "btn-verify", "btn-baseline"]) $(b).disabled = running;
   if (running) setTimeout(pollJob, 700);
-  else { await loadCorpus(); await loadHealth(); }
+  else { await loadCorpus(); await loadHealth(); loadFacets(); }
 }
 
 async function startIngest(force) {
@@ -307,6 +445,232 @@ $("btn-baseline").onclick = updateBaseline;
 $("btn-recheck").onclick = loadHealth;
 $("btn-open-folder").onclick = () => api("/api/open-folder", { method: "POST", headers: H, body: "{}" }).catch((e) => alert(e.message));
 $("filter").oninput = renderCorpus;
+
+
+// ---------------------------------------------------------------- shared helpers
+let facets = { matters: [], document_types: [], correctable_fields: [] };
+const statusClass = { VERIFIED: "ok", PARTIALLY_SUPPORTED: "warn", UNSUPPORTED: "fail", SOURCE_ERROR: "fail" };
+const where = (c) => (c.page !== null && c.page !== undefined ? `p.${c.page}` : c.section_id || "");
+function citeChip(c, status) {
+  return el("span", { class: "chip" },
+    el("a", { href: "#", onclick: (e) => { e.preventDefault(); openEvidence(c.evidence_id); } }, c.evidence_id),
+    where(c), c.chunk_id ? el("span", { class: "mono muted" }, c.chunk_id) : null,
+    status ? el("span", { class: `pill ${statusClass[status] || "warn"}` }, status) : null);
+}
+function openEvidence(id) { showTab("evidence"); showDetail(id); }
+function formData(form) {
+  const o = {};
+  for (const [k, v] of new FormData(form).entries()) if (String(v).trim() !== "") o[k] = String(v).trim();
+  return o;
+}
+async function post(path, body) { return api(path, { method: "POST", headers: H, body: JSON.stringify(body) }); }
+/** Replace a container's content, skipping empty (null/false) entries. */
+function put(target, ...nodes) { $(target).replaceChildren(...nodes.flat().filter((n) => n !== null && n !== undefined && n !== false)); }
+function busy(target, text) { $(target).replaceChildren(el("p", { class: "spinner" }, text)); }
+function failure(target, e) { $(target).replaceChildren(el("div", { class: "notice fail" }, e.message)); }
+function showTab(name) {
+  for (const b of document.querySelectorAll("#tabs button")) b.classList.toggle("active", b.dataset.tab === name);
+  for (const t of document.querySelectorAll(".tab")) t.hidden = t.id !== `tab-${name}`;
+  try { localStorage.setItem("legal-poc-tab", name); } catch {}
+}
+for (const b of document.querySelectorAll("#tabs button")) b.onclick = () => showTab(b.dataset.tab);
+
+async function loadFacets() {
+  try { facets = await api("/api/facets"); } catch { return; }
+  for (const sel of document.querySelectorAll("select.facet-matters")) {
+    const first = sel.options[0];
+    sel.replaceChildren(first, ...facets.matters.map((m) => el("option", { value: m }, m)));
+  }
+  for (const sel of document.querySelectorAll("select.facet-types")) {
+    const first = sel.options[0];
+    sel.replaceChildren(first, ...facets.document_types.map((m) => el("option", { value: m }, m.replace(/_/g, " "))));
+  }
+  $("search-info").textContent = facets.semantic ? `Semantic search: ${facets.semantic.note}` : "";
+}
+
+function correctionForm(r) {
+  const out = el("div", {});
+  const form = el("form", { class: "query", onsubmit: async (e) => {
+    e.preventDefault();
+    const d = formData(form);
+    try {
+      await post("/api/corrections", { evidence_id: r.evidence_id, field: d.field, value: d.value ?? "", reason: d.reason });
+      await loadCorpus();
+      showDetail(r.evidence_id);
+    } catch (err) { out.replaceChildren(form, el("div", { class: "notice fail" }, err.message)); }
+  } },
+    el("div", { class: "fields" },
+      el("label", { class: "f" }, "Field", el("select", { name: "field" }, ...(facets.correctable_fields || []).map((f) => el("option", { value: f }, f)))),
+      el("label", { class: "f" }, "New value (lists: comma-separated; dates: YYYY-MM-DD)", el("input", { type: "text", name: "value" })),
+      el("label", { class: "f" }, "Reason (required)", el("input", { type: "text", name: "reason", required: true }))),
+    el("div", { class: "row" }, el("button", { type: "submit" }, "Save correction"),
+      el("span", { class: "muted", style: "font-size:12.5px" }, "Stored separately and audited; the original file and the machine record are not changed.")));
+  out.append(form);
+  return el("details", { style: "margin-top:14px" }, el("summary", { style: "cursor:pointer;font-weight:600" }, "Correct metadata"), out);
+}
+
+// ---------------------------------------------------------------- Search
+$("form-search").onsubmit = async (e) => {
+  e.preventDefault();
+  const d = formData(e.target);
+  busy("search-results", "Searching…");
+  try {
+    const res = await post("/api/search", { ...d, top_k: 20 });
+    put("search-results", 
+      el("p", { class: "muted" }, `${res.results.length} result(s) from ${res.filtered_candidates} passage(s) in scope · ${res.took_ms} ms`),
+      ...(res.results.length ? res.results.map((r) => el("div", { class: "result" },
+        el("div", { class: "meta" }, citeChip(r), el("b", {}, r.filename), r.document_date ? `· ${r.document_date}` : "", `· ${r.document_type.replace(/_/g, " ")}`,
+          `· score ${r.score}`, `· ${r.retrieval_method.join(" + ")}`, r.ocr ? el("span", { class: "pill warn" }, `OCR ${r.ocr_confidence}`) : null),
+        r.heading ? el("div", { class: "muted", style: "font-size:13px;margin-top:4px" }, r.heading) : null,
+        el("div", { class: "text" }, r.text))) : [el("p", {}, "No matching evidence.")]));
+  } catch (err) { failure("search-results", err); }
+};
+
+// ---------------------------------------------------------------- Ask
+$("form-ask").onsubmit = async (e) => {
+  e.preventDefault();
+  const d = formData(e.target);
+  busy("ask-result", "Looking for evidence…");
+  try {
+    const a = await post("/api/ask", d);
+    if (a.status !== "answered") {
+      put("ask-result", el("div", { class: "notice warn" }, a.answer), a.notes.length ? el("p", { class: "muted" }, a.notes.join("; ")) : null);
+      return;
+    }
+    put("ask-result", 
+      el("div", { class: "answer" }, a.answer),
+      el("div", { class: "row" }, el("span", { class: `pill ${statusClass[a.verification] || "warn"}` }, `Verification: ${a.verification}`),
+        el("span", { class: "muted" }, a.mode === "llm" ? `generated by ${a.llm.model}, every claim verified` : "extractive answer (quoted from the evidence)")),
+      ...a.claims.map((c, i) => el("div", { class: "result" },
+        a.claims.length > 1 ? el("div", { class: "meta" }, `Finding ${i + 1}`) : null,
+        ...c.citations.map((x) => el("div", {},
+          el("div", { class: "meta" }, citeChip(x, x.verification.status), el("b", {}, x.title || x.filename), x.document_date ? `· ${x.document_date}` : ""),
+          el("blockquote", {}, x.quote),
+          x.verification.reasons.length ? el("div", { class: "muted", style: "font-size:12.5px" }, x.verification.reasons.join("; ")) : null)))),
+      a.rejected_claims.length ? el("div", { class: "notice warn" }, `${a.rejected_claims.length} generated claim(s) were removed because their citations could not be verified.`) : null,
+      a.notes.length ? el("p", { class: "muted" }, a.notes.join("; ")) : null);
+  } catch (err) { failure("ask-result", err); }
+};
+
+// ---------------------------------------------------------------- Timeline
+$("form-timeline").onsubmit = async (e) => {
+  e.preventDefault();
+  const d = formData(e.target);
+  busy("timeline-result", "Building the chronology…");
+  try {
+    const c = await post("/api/chronology", d);
+    const label = { explicit: "stated in the text", email_sent: "email sent", document_date: "document date" };
+    put("timeline-result", 
+      el("p", { class: "muted" }, `${c.events.length} event(s) from ${c.documents_considered} document(s)${c.matter_filter.length ? ` · matter: ${c.matter_filter.join(", ")}` : ""}${c.notes.length ? ` · ${c.notes.join("; ")}` : ""}`),
+      ...(c.events.length ? c.events.map((ev) => el("div", { class: "timeline-row" },
+        el("div", {}, el("div", { class: "date" }, ev.date), el("div", { class: "muted", style: "font-size:12px" }, label[ev.date_type]),
+          ev.inferred ? el("span", { class: "pill warn" }, "inferred") : null),
+        el("div", {}, el("div", {}, ev.event),
+          el("div", { class: "meta", style: "margin-top:4px;font-size:12.5px" },
+            el("span", { class: `pill ${ev.confidence === "high" ? "ok" : ev.confidence === "medium" ? "warn" : "fail"}` }, `${ev.confidence} confidence`),
+            ev.corroborating_documents > 1 ? el("span", { class: "muted" }, `${ev.corroborating_documents} documents`) : null,
+            ...ev.citations.map((x) => citeChip(x, x.verification))),
+          ev.notes.length ? el("div", { class: "muted", style: "font-size:12px" }, ev.notes.join("; ")) : null))) : [el("p", {}, "No dated events found.")]));
+  } catch (err) { failure("timeline-result", err); }
+};
+
+// ---------------------------------------------------------------- Compare
+$("form-compare").onsubmit = async (e) => {
+  e.preventDefault();
+  const d = formData(e.target);
+  busy("compare-result", "Comparing positions…");
+  try {
+    const c = await post("/api/compare", d);
+    const props = new Map(c.documents.flatMap((doc) => doc.propositions.map((p) => [p.id, p])));
+    const rel = { potential_contradiction: "fail", possible_tension: "warn", changed_wording: "warn", consistent: "ok" };
+    put("compare-result", 
+      el("div", { class: "warning-box" }, c.caveat),
+      el("h2", { style: "margin-top:12px" }, "Positions by document (chronological)"),
+      el("div", { class: "cols" }, ...c.documents.map((doc) => el("div", { class: "result" },
+        el("div", { class: "meta" }, el("a", { href: "#", onclick: (ev) => { ev.preventDefault(); openEvidence(doc.evidence_id); } }, doc.evidence_id), doc.document_date || "undated", `· ${doc.document_type.replace(/_/g, " ")}`),
+        el("b", { style: "font-size:13.5px" }, doc.title || doc.filename),
+        ...doc.propositions.map((p) => el("div", {}, el("blockquote", {}, `${p.id} · ${p.text}`), el("div", { class: "meta" }, citeChip(p.citation, p.citation.verification), p.polarity === "negative" ? el("span", { class: "muted" }, "negated statement") : null)))))),
+      el("h2", { style: "margin-top:12px" }, "Suggested relations"),
+      ...(c.pairs.length ? c.pairs.slice(0, 20).map((pr) => el("div", { class: "result" },
+        el("div", { class: "meta" }, el("span", { class: `pill ${rel[pr.relation]}` }, pr.relation.replace(/_/g, " ")), `${pr.a} ↔ ${pr.b}`, `similarity ${pr.similarity}`, `${pr.confidence} confidence`),
+        el("div", { style: "font-size:13.5px;margin-top:4px" }, pr.explanation),
+        el("blockquote", {}, `${pr.a}: ${props.get(pr.a)?.text ?? ""}`), el("blockquote", {}, `${pr.b}: ${props.get(pr.b)?.text ?? ""}`))) : [el("p", {}, "No related statements found.")]),
+      c.notes.length ? el("p", { class: "muted" }, c.notes.join("; ")) : null);
+  } catch (err) { failure("compare-result", err); }
+};
+
+// ---------------------------------------------------------------- Unaddressed
+$("form-unaddressed").onsubmit = async (e) => {
+  e.preventDefault();
+  const d = formData(e.target);
+  busy("unaddressed-result", "Analysing…");
+  try {
+    const r = await post("/api/unaddressed", d);
+    const cls = { addressed: "ok", partially_addressed: "warn", referenced_only: "warn", uncertain: "warn", no_treatment_found: "fail" };
+    const docs = (xs) => xs.map((x) => `${x.evidence_id} ${x.filename}${x.document_date ? ` (${x.document_date})` : ""}`).join("; ") || "none";
+    put("unaddressed-result", 
+      el("div", { class: "warning-box" }, r.warning),
+      el("p", {}, el("b", {}, "Submission(s): "), docs(r.sources)), el("p", {}, el("b", {}, "Decision(s) searched: "), docs(r.targets), el("span", { class: "muted" }, ` · ${r.sections_searched.length} section(s)`)),
+      ...(r.items.length ? r.items.map((it) => el("div", { class: "result" },
+        el("div", { class: "meta" }, el("span", { class: `pill ${cls[it.classification]}` }, it.classification.replace(/_/g, " ")), el("b", {}, it.label), `confidence ${it.confidence}`, it.item_evidence_id ? el("a", { href: "#", onclick: (ev) => { ev.preventDefault(); openEvidence(it.item_evidence_id); } }, it.item_evidence_id) : null),
+        el("div", { style: "margin-top:4px" }, it.description || ""),
+        el("div", { class: "muted", style: "font-size:13px;margin-top:4px" }, it.explanation),
+        el("div", { class: "meta", style: "margin-top:4px" }, "Raised in:", ...it.raised_in.map((c) => citeChip(c))),
+        it.best_match ? el("div", {}, el("div", { class: "meta", style: "margin-top:4px" }, "Closest passage in the decision:", citeChip(it.best_match)), el("blockquote", {}, it.best_match.quote)) : null)) : [el("p", {}, "No annexes or attachments were found in the submission(s).")]),
+      r.notes.length ? el("p", { class: "muted" }, r.notes.join("; ")) : null);
+  } catch (err) { failure("unaddressed-result", err); }
+};
+
+// ---------------------------------------------------------------- Verify
+$("form-verify").onsubmit = async (e) => {
+  e.preventDefault();
+  const d = formData(e.target);
+  busy("verify-result", "Checking…");
+  try {
+    const v = await post("/api/verify", d);
+    put("verify-result", 
+      el("div", { class: "row", style: "margin-top:10px" }, el("span", { class: `pill ${statusClass[v.status]}`, style: "font-size:14px" }, v.status), v.filename ? citeChip(v) : null),
+      el("ul", {}, ...v.reasons.map((x) => el("li", {}, x))),
+      v.supporting_passage ? el("div", {}, el("div", { class: "muted", style: "font-size:13px" }, "Best matching passage in the cited source:"), el("blockquote", {}, v.supporting_passage)) : null,
+      el("p", { class: "muted", style: "font-size:12.5px" }, `Quote check: ${v.quote_check.replace(/_/g, " ")} · content coverage ${v.scores.content_coverage} · key facts ${v.scores.key_fact_coverage}${v.scores.semantic_similarity !== null ? ` · semantic ${v.scores.semantic_similarity}` : ""}`));
+  } catch (err) { failure("verify-result", err); }
+};
+
+// ---------------------------------------------------------------- Evaluation
+function renderEval(ev) {
+  if (!ev) return;
+  if (ev.status === "running") { $("eval-info").textContent = `Running since ${ev.started_at}…`; setTimeout(pollEval, 1500); return; }
+  $("btn-eval").disabled = false;
+  if (ev.status === "failed") { put("eval-result", el("div", { class: "notice fail" }, ev.error)); return; }
+  const r = ev.report, m = r.metrics;
+  const pct = (x) => (x === null ? "n/a" : `${(x * 100).toFixed(1)} %`);
+  $("eval-info").textContent = `Last run ${r.generated_at} · ${r.cases.filter((c) => c.passed).length}/${r.cases.length} cases passed`;
+  const rows = [
+    ["Top-10 expected-source recall", pct(m.retrieval_top10_recall), "≥ 90 %"], ["Top-5 expected-source recall", pct(m.retrieval_top5_recall), "≥ 80 %"],
+    ["Page correctness", pct(m.page_correctness), "report"], ["Exact-fact answers correct", pct(m.fact_answer_accuracy), "report"],
+    ["Citation-support accuracy", pct(m.citation_support_accuracy), "≥ 95 %"], ["Citation tests", m.citation_tests_passed, "all"],
+    ["Unsupported claims in answers", pct(m.unsupported_claim_rate), "≤ 5 %"], ["Chronology precision", pct(m.chronology_precision), "report"],
+    ["Chronology expected events found", pct(m.chronology_expected_event_recall), "report"], ["Comparison relations found", m.comparison_expected_pairs_found, "report"],
+    ["Unaddressed-evidence accuracy", pct(m.unaddressed_classification_accuracy), "report"], ["Refusals when evidence is insufficient", m.refusal_accuracy, "all"],
+    ["Original evidence unchanged", m.originals_unchanged ? "yes" : "NO", "yes"],
+  ];
+  put("eval-result", 
+    el("p", { class: "muted" }, `${r.corpus.originals} files, ${r.corpus.evidence_objects} evidence objects, ${r.corpus.chunks} chunks · ${r.semantic}`),
+    el("table", {}, el("thead", {}, el("tr", {}, el("th", {}, "Metric"), el("th", {}, "Result"), el("th", {}, "Target"))),
+      el("tbody", {}, ...rows.map(([a, b, c]) => el("tr", {}, el("td", {}, a), el("td", {}, el("b", {}, b)), el("td", { class: "muted" }, c))))),
+    el("h2", { style: "margin-top:14px" }, "Cases"),
+    el("table", {}, el("tbody", {}, ...r.cases.map((c) => el("tr", {}, el("td", { class: "mono nowrap" }, c.id), el("td", {}, el("span", { class: `pill ${c.passed ? "ok" : "fail"}` }, c.passed ? "pass" : "fail")), el("td", { class: "muted" }, c.failure || ""), el("td", { class: "muted nowrap" }, `${c.latency_ms} ms`))))));
+}
+async function pollEval() { try { renderEval((await api("/api/eval")).eval); } catch {} }
+$("btn-eval").onclick = async () => {
+  $("btn-eval").disabled = true;
+  busy("eval-result", "Running the gold question set (about 20-60 seconds the first time)…");
+  try { renderEval((await post("/api/eval", {})).eval); } catch (err) { $("btn-eval").disabled = false; failure("eval-result", err); }
+};
+
+try { const t = localStorage.getItem("legal-poc-tab"); if (t && $(`tab-${t}`)) showTab(t); } catch {}
+loadFacets();
+pollEval();
 
 loadHealth().then(loadCorpus).then(pollJob).catch((e) => {
   $("status-pill").className = "pill fail";

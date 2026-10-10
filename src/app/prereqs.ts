@@ -3,6 +3,7 @@ import path from "node:path";
 import type { AppConfig } from "../config.js";
 import { listFiles } from "../ingestion/hashing.js";
 import { isInside, safeWriteFile } from "../util/fs-guard.js";
+import { readModelManifest } from "../retrieval/models.js";
 
 /**
  * Prerequisite checks, used by the launcher (before starting) and by the web page.
@@ -89,6 +90,23 @@ function ocrDataCheck(cfg: AppConfig): PrereqCheck {
   };
 }
 
+function searchModelCheck(cfg: AppConfig): PrereqCheck {
+  const s = cfg.retrieval.semantic;
+  if (s.provider === "none") return { id: "search_model", label: "Semantic search", status: "warn", detail: "disabled in the configuration (exact-word search only)", fix: null };
+  if (s.provider === "lsa") return { id: "search_model", label: "Semantic search", status: "ok", detail: "built-in LSA (configured)", fix: null };
+  if (s.provider === "ollama") return { id: "search_model", label: "Semantic search", status: "ok", detail: `Ollama ${s.ollamaModel} at ${s.ollamaUrl}`, fix: null };
+  const manifest = readModelManifest(s.modelsDir, s.model);
+  return manifest
+    ? { id: "search_model", label: "Semantic search", status: "ok", detail: `local model ${s.model} (offline)`, fix: null }
+    : {
+        id: "search_model",
+        label: "Semantic search",
+        status: "warn",
+        detail: `model ${s.model} not installed; using the simpler built-in fallback`,
+        fix: "Start the launcher once with an internet connection to download the search model (about 25-90 MB).",
+      };
+}
+
 function layoutCheck(cfg: AppConfig): PrereqCheck {
   if (isInside(cfg.dataDir, cfg.originalsDir)) {
     return {
@@ -161,6 +179,7 @@ export async function checkPrerequisites(cfg: AppConfig): Promise<PrereqReport> 
     await dependenciesCheck(),
     await canvasCheck(),
     ocrDataCheck(cfg),
+    searchModelCheck(cfg),
     layoutCheck(cfg),
     originalsCheck(cfg),
     dataWritableCheck(cfg),

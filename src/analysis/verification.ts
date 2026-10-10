@@ -51,6 +51,7 @@ export interface VerificationResult {
 
 interface Window {
   text: string;
+  sentences: number;
   chunk: Chunk | null;
   page: number | null;
 }
@@ -168,24 +169,34 @@ export async function verifyCitation(cfg: AppConfig, input: CitationInput, index
     const sents = splitSentences(c.text);
     for (let i = 0; i < sents.length; i++) {
       for (let len = 1; len <= 3 && i + len <= sents.length; len++) {
-        windows.push({ text: sents.slice(i, i + len).map((s) => s.text).join(" "), chunk: c, page: c.page });
+        windows.push({ text: sents.slice(i, i + len).map((s) => s.text).join(" "), sentences: len, chunk: c, page: c.page });
       }
     }
   }
-  if (!windows.length) windows.push({ text: scopeText, chunk: scopeChunks[0] ?? null, page: input.page ?? null });
+  if (!windows.length) windows.push({ text: scopeText, sentences: 1, chunk: scopeChunks[0] ?? null, page: input.page ?? null });
 
   const claimContent = contentTokens(input.claim);
   const claimFacts = keyFactTokens(input.claim);
   const claimDates = dateTokens(tokenize(input.claim));
-  let best = { w: windows[0]!, content: 0, facts: 0, score: -1 };
-  for (const w of windows) {
-    const wTokens = tokenize(w.text);
+  // Judge the claim against single sentences first: a fact must be attributed to the right
+  // subject ("Rossi ... 20 March. Hale ... 24 March" must not verify "Rossi ... 24 March").
+  // Multi-sentence windows are only used when no single sentence covers the claim's content.
+  const scoreWindow = (w: Window) => {
     const content = coverage(claimContent, contentTokens(w.text));
-    const facts = claimFacts.length ? coverage(claimFacts, wTokens) : 1;
-    // Prefer shorter windows at equal support.
-    const score = 0.6 * content + 0.4 * facts - w.text.length / 100000;
-    if (score > best.score) best = { w, content, facts, score };
+    const facts = claimFacts.length ? coverage(claimFacts, tokenize(w.text)) : 1;
+    return { w, content, facts, score: 0.6 * content + 0.4 * facts - w.text.length / 100000 };
+  };
+  const singles = windows.filter((w) => w.sentences === 1).map(scoreWindow);
+  const bestSingle = singles.reduce<ReturnType<typeof scoreWindow> | null>((a, b) => (!a || b.content > a.content || (b.content === a.content && b.score > a.score) ? b : a), null);
+  let best = { w: windows[0]!, content: 0, facts: 0, score: -1 };
+  if (bestSingle && bestSingle.content >= 0.6) {
+    // The sentence that best matches who/what the claim is about is the one judged; its facts
+    // (dates, numbers) are then checked in that same sentence.
+    best = bestSingle;
+  } else {
+    for (const cand of windows.map(scoreWindow)) if (cand.score > best.score) best = cand;
   }
+
 
   let semantic: number | null = null;
   if (index?.embedder) {

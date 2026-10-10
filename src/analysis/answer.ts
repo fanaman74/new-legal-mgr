@@ -217,8 +217,13 @@ export async function answerQuestion(cfg: AppConfig, search: SearchService, ques
   candidates.sort((a, b) => b.score - a.score);
   const best = candidates[0];
   const minSim = (index.embedder?.minSimilarity ?? 1) + 0.15;
+  // A question word that never occurs in the corpus (e.g. "dismissed") can only be bridged by a
+  // strong paraphrase, not by a sentence that merely shares the names.
+  const absent = terms.filter((t) => index.df(t) === 0);
+  const semanticBar = absent.length ? minSim + 0.15 : minSim;
   const sufficient =
-    best && (best.coverage >= cfg.answer.minLexicalCoverage || (best.semantic !== null && best.semantic >= minSim && best.coverage >= 0.3));
+    best && (best.coverage >= cfg.answer.minLexicalCoverage || (best.semantic !== null && best.semantic >= semanticBar && best.coverage >= 0.3));
+  if (best && !sufficient && absent.length) notes.push(`the corpus never mentions: ${absent.join(", ")}`);
   if (!best) {
     return insufficient(expect === "statement" ? "no usable passage retrieved" : `no retrieved passage contains the kind of fact asked for (${expect})`);
   }
@@ -238,9 +243,29 @@ export async function answerQuestion(cfg: AppConfig, search: SearchService, ques
   // date nearest to the question's most distinctive word (e.g. "registered", not "lodged").
   let answerFact: string | null = null;
   let factLead = "";
+  let documentDateCitation: AnswerCitation | null = null;
   if (expect === "date") {
     const sentence = best.sentence;
-    const dates = extractDateCandidates(sentence, null, null).filter((d) => !d.ambiguous);
+    // Dates that merely qualify a noun ("the request of 17 January 2025") are not the event's date.
+    const allDates = extractDateCandidates(sentence, null, null).filter((d) => !d.ambiguous);
+    const eventDates = allDates.filter((d) => !/\b(?:of|dated|from)\s*$/i.test(sentence.slice(0, sentence.indexOf(d.raw))));
+    const record = index.records.get(best.result.evidence_id);
+    // A performative statement in a decision ("is opened", "is hereby rejected", "has decided")
+    // takes effect on the date of the document itself.
+    const performative = /\b(?:is|are)\s+(?:hereby\s+)?[a-z]+(?:ed|en)\b|\bhereby\b|\bhas decided\b/i.test(sentence);
+    if (!eventDates.length && performative && record?.document.date && record.document.date_confidence && record.document.date_confidence !== "low") {
+      const cand = record.document.date_candidates.find((d) => d.value === record.document.date && d.chunk_id);
+      const chunk = cand ? index.chunksOf(record.evidence_id).find((c) => c.chunk_id === cand.chunk_id) : undefined;
+      if (cand && chunk) {
+        const line = chunk.text.split("\n").find((l) => l.includes(cand.raw))?.trim() ?? cand.raw;
+        const asResult: SearchResult = { ...best.result, page: chunk.page, section_id: chunk.section_id, chunk_id: chunk.chunk_id, text: chunk.text, heading: chunk.heading };
+        documentDateCitation = await toCitation(cfg, search, asResult, line, line);
+        answerFact = `date:${cand.value}`;
+        factLead = `${cand.raw} (date of the document making this statement). `;
+        notes.push("the date is the date of the document, because the statement takes effect when the document is issued");
+      }
+    }
+    const dates = documentDateCitation ? [] : eventDates.length ? eventDates : allDates;
     const lower = sentence.toLowerCase();
     const anchors = terms
       .map((t) => ({ t, at: lower.indexOf(t.slice(0, Math.max(4, Math.min(t.length, 6)))), w: weight(t) }))
@@ -248,7 +273,7 @@ export async function answerQuestion(cfg: AppConfig, search: SearchService, ques
       .sort((a, b) => b.w - a.w);
     const anchor = anchors[0]?.at ?? 0;
     const pick = dates.reduce<(typeof dates)[number] | null>((acc, d) => (!acc || Math.abs(sentence.indexOf(d.raw) - anchor) < Math.abs(sentence.indexOf(acc.raw) - anchor) ? d : acc), null);
-    if (pick) {
+    if (pick && !documentDateCitation) {
       answerFact = `date:${pick.value}`;
       factLead = `${pick.raw}. `;
     }
@@ -284,6 +309,7 @@ export async function answerQuestion(cfg: AppConfig, search: SearchService, ques
     const citation = await toCitation(cfg, search, c.result, c.sentence, c.sentence);
     claims.push({ text: c.sentence, citations: [citation], status: citation.verification.status });
   }
+  if (documentDateCitation && claims[0]) claims[0].citations.push(documentDateCitation);
   const verified = claims.filter((c) => c.status === "VERIFIED" || c.status === "PARTIALLY_SUPPORTED");
   if (!verified.length) return insufficient("no retrieved passage passed citation verification");
 

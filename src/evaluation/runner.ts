@@ -106,6 +106,8 @@ export interface EvalOptions {
   corpus?: "sample" | "current";
   /** Regenerate and re-ingest the sample workspace from scratch. */
   fresh?: boolean;
+  /** Workspace for the sample corpus (default: data/eval-sample). */
+  workspace?: string;
   log?: (s: string) => void;
 }
 
@@ -115,9 +117,14 @@ export async function runEvaluation(baseCfg: AppConfig, opts: EvalOptions = {}):
   const gold = GoldFile.parse(parseYaml(readFileSync(goldFile, "utf8")));
   let cfg = baseCfg;
   if ((opts.corpus ?? "sample") === "sample") {
-    const workspace = path.join(REPO_ROOT, "data", "eval-sample");
+    const workspace = opts.workspace ?? path.join(REPO_ROOT, "data", "eval-sample");
     if (opts.fresh) rmSync(workspace, { recursive: true, force: true });
-    cfg = loadConfig({ originalsDir: path.join(workspace, "originals"), dataDir: path.join(workspace, "data"), auditLog: path.join(workspace, "audit.jsonl") });
+    cfg = loadConfig({
+      originalsDir: path.join(workspace, "originals"),
+      dataDir: path.join(workspace, "data"),
+      auditLog: path.join(workspace, "audit.jsonl"),
+      semanticProvider: baseCfg.retrieval.semantic.provider,
+    });
     if (!existsSync(cfg.originalsDir)) {
       log("Generating the fictional sample corpus...");
       await generateSampleCorpus(cfg.originalsDir);

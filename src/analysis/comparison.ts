@@ -60,6 +60,7 @@ export async function comparePositions(cfg: AppConfig, search: SearchService, p:
   const index = await search.getIndex();
   const minSim = index.embedder?.minSimilarity ?? 0.3;
   const issueTerms = contentTokens(p.issue);
+  const conceptTerms = [...new Set(p.issue.split(/\s+/).slice(1).filter((w) => /^[a-z]/.test(w)).flatMap((w) => contentTokens(w)))];
 
   // 1. Candidate propositions.
   type Cand = { text: string; relevance: number; r: (typeof res.results)[number] };
@@ -143,11 +144,12 @@ export async function comparePositions(cfg: AppConfig, search: SearchService, p:
       const sem = vecs ? cosine(vecs[i]!, vecs[j]!) : null;
       const sim = sem !== null ? Math.max(sem, lex) : lex;
       const bothOnIssue = Math.min(relevanceOf.get(A.id) ?? 0, relevanceOf.get(B.id) ?? 0) >= strongly;
-      // Both statements speak to the same aspect of the issue (share at least two of its key terms).
-      const aspect = new Set(issueTerms.filter((t) => strip(A.text).includes(t) && strip(B.text).includes(t)));
+      // Both statements speak to the same aspect of the issue: they share at least two of the
+      // issue's concept words (names and other capitalised words do not count).
+      const aspect = new Set(conceptTerms.filter((t) => strip(A.text).includes(t) && strip(B.text).includes(t)));
       const related = (sem !== null ? sem >= minSim + 0.15 || lex >= 0.25 : lex >= 0.2) || bothOnIssue || aspect.size >= 2;
       if (!related) continue;
-      const close = sem !== null ? sem >= minSim + 0.2 || lex >= 0.45 : lex >= 0.35;
+      const close = (sem !== null ? sem >= minSim + 0.2 || lex >= 0.45 : lex >= 0.35) && aspect.size >= 2;
       const same = sem !== null ? sem >= 0.88 || lex >= 0.7 : lex >= 0.6;
       const who = (x: Proposition) => `${x.citation.evidence_id} (${x.citation.document_type.replace(/_/g, " ")}${x.citation.document_date ? `, ${x.citation.document_date}` : ""})`;
       let relation: Relation;

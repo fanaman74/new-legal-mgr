@@ -10,6 +10,7 @@ import { writeJson } from "../util/fs-guard.js";
 import { Bm25Index } from "./bm25.js";
 import { cosine, resolveEmbedder, type Embedder } from "./embeddings.js";
 import { canonicalForQuote, contentTokens, tokenize } from "./text.js";
+import { extractDateCandidates } from "../ingestion/metadata.js";
 
 /**
  * Hybrid retrieval over evidence chunks: BM25 (exact names, dates, references, quoted text)
@@ -137,6 +138,11 @@ export class RetrievalIndex {
     return this.bm25.idf(token);
   }
 
+  /** Number of indexed chunks containing a token (0 = the corpus never uses it). */
+  df(token: string): number {
+    return this.bm25.df(token);
+  }
+
   isStale(): boolean {
     return corpusFingerprint(this.cfg) !== this.fingerprint;
   }
@@ -176,8 +182,13 @@ export class RetrievalIndex {
 
     const queryTokens = tokenize(p.query);
     const queryContent = new Set(contentTokens(p.query));
-    // Hard facts (references, anchors, dates) weigh more than ordinary words.
-    const weights = new Map(queryTokens.map((t) => [t, t.includes(":") || /\d/.test(t) ? 2 : 1]));
+    // Hard facts (references, anchors, dates) weigh more than ordinary words. When the query
+    // contains a recognised date, the normalised date token carries it; its loose parts
+    // ("20", "January", "2025") count little on their own.
+    const dateParts = new Set(extractDateCandidates(p.query, null, null).flatMap((d) => tokenize(d.raw, { specialTokens: false })));
+    const weights = new Map(
+      queryTokens.map((t) => [t, t.startsWith("date:") ? 3 : dateParts.has(t) ? 0.3 : t.includes(":") || /\d/.test(t) ? 2 : 1]),
+    );
 
     let lexical: [number, number][] = [];
     if (mode !== "semantic") {
@@ -196,6 +207,9 @@ export class RetrievalIndex {
         .map(([i, sc]): [number, number] => [i, sc])
         .sort((a, b) => b[1] - a[1])
         .slice(0, depth);
+      // Relative floor: a chunk scoring far below the best lexical match is not a lexical match.
+      const topScore = lexical[0]?.[1] ?? 0;
+      lexical = lexical.filter(([, sc]) => sc >= 0.15 * topScore);
     }
     let semantic: [number, number][] = [];
     if (mode !== "lexical" && this.embedder && this.vectors) {
