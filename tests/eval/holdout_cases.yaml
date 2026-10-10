@@ -1,0 +1,93 @@
+# Held-out cases: written after development and run ONCE without tuning, to estimate how much
+# the gold-set results reflect fitting to that set. Do not tune against these; add new held-out
+# cases instead when the system changes materially.
+version: 1
+corpus: sample
+
+cases:
+  - id: H-FACT-001
+    category: fact
+    question: "Who was the reporting officer for Ms Doe's 2023 appraisal?"
+    expected: { files: [article90/annex_4_performance_appraisal_2023.docx], required_terms: ["Victor Hale"] }
+
+  - id: H-FACT-002
+    category: fact
+    question: "What overall assessment did the 2023 appraisal give?"
+    expected: { files: [article90/annex_4_performance_appraisal_2023.docx], required_terms: ["exceeds expectations"] }
+
+  - id: H-FACT-003
+    category: fact
+    question: "When did the termination of Ms Doe's contract take effect?"
+    expected: { files: [termination/2025-02-28_termination_letter.docx], required_terms: ["31 May 2025"] }
+
+  - id: H-FACT-004
+    category: fact
+    question: "When was the administrative inquiry opened?"
+    expected:
+      files: [investigation/2025-03-03_decision_opening_inquiry.docx, investigation/2025-04-14_administrative_inquiry_report.pdf, emails/2025-03-10_invitation_to_interview.msg]
+      required_terms: ["3 March 2025"]
+
+  - id: H-FACT-005
+    category: fact
+    question: "Which recommendations of audit IAS-2024-07 have been implemented?"
+    expected: { files: [audit/2025-01-15_IAS_follow_up_memo.docx], required_terms: ["segregation of duties"] }
+
+  - id: H-FACT-006
+    category: fact
+    question: "When did the Registry of the General Court receive the application?"
+    expected:
+      files: [court/registry_receipt_scanned.pdf, court/2026-02-20_application_general_court.pdf]
+      pages: [1]
+      required_terms: ["20 February 2026"]
+
+  - id: H-CHRON-001
+    category: chronology
+    question: "Build the chronology of the termination of Ms Doe's contract."
+    expected:
+      files: [termination/2025-02-28_termination_letter.docx]
+      events:
+        - { date: "2025-02-28", files: [termination/2025-02-28_termination_letter.docx, lawyer/2025-03-15_letter_from_counsel.docx] }
+        - { date: "2025-05-31", files: [termination/2025-02-28_termination_letter.docx] }
+
+  - id: H-CMP-001
+    category: comparison
+    question: "Did the inquiry establish a repeated pattern of conduct by Mr Hale?"
+    expected:
+      files: [investigation/2025-04-14_administrative_inquiry_report.pdf, court/2026-05-15_defence_example_agency.docx]
+      pairs:
+        - files: [investigation/2025-04-14_administrative_inquiry_report.pdf, court/2026-05-15_defence_example_agency.docx]
+          relations: [consistent, changed_wording]
+
+  - id: H-CITE-001
+    category: citation
+    claim: "Ms Rossi was interviewed on 20 March 2025."
+    citation: { file: investigation/2025-04-14_administrative_inquiry_report.pdf, page: 1 }
+    expected_status: VERIFIED
+
+  - id: H-CITE-002
+    category: citation
+    claim: "Ms Rossi was interviewed on 24 March 2025."
+    citation: { file: investigation/2025-04-14_administrative_inquiry_report.pdf, page: 1 }
+    expected_status: UNSUPPORTED   # 24 March was Mr Hale's interview
+
+  - id: H-CITE-003
+    category: citation
+    claim: "The complaint R/123/25 was upheld."
+    citation: { file: article90/2025-11-28_reply_to_complaint_article90.pdf, page: 2 }
+    expected_status: UNSUPPORTED
+
+  - id: H-CITE-004
+    category: citation
+    claim: "The appraisal found that procurement files were handled with rigour."
+    citation: { file: article90/annex_4_performance_appraisal_2023.docx }
+    expected_status: VERIFIED
+
+  - id: H-NEG-001
+    category: insufficient
+    question: "When was Mr Hale dismissed?"
+    expected: insufficient
+
+  - id: H-NEG-002
+    category: insufficient
+    question: "What disciplinary sanction was imposed on Mr Hale?"
+    expected: insufficient
