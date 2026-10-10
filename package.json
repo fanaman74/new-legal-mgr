@@ -10,6 +10,11 @@
   "scripts": {
     "start": "node scripts/ensure-deps.mjs && tsx scripts/launch.ts",
     "start:sample": "tsx scripts/launch.ts --sample",
+    "setup-models": "tsx scripts/setup-models.ts",
+    "search": "tsx scripts/search.ts",
+    "ask": "tsx scripts/ask.ts",
+    "mcp": "tsx scripts/mcp.ts",
+    "eval": "tsx scripts/run-eval.ts",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:unit": "vitest run tests/unit",
@@ -21,7 +26,9 @@
     "sample-corpus": "tsx scripts/make-sample-corpus.ts"
   },
   "dependencies": {
+    "@huggingface/transformers": "^4.3.1",
     "@kenjiuno/msgreader": "^1.28.0",
+    "@modelcontextprotocol/sdk": "^1.32.1",
     "@napi-rs/canvas": "^1.0.11",
     "@tesseract.js-data/eng": "^1.0.0",
     "cfb": "^1.2.2",
@@ -31,6 +38,7 @@
     "mammoth": "^1.13.0",
     "node-html-parser": "^9.0.4",
     "pdfjs-dist": "^6.4.299",
+    "tar": "^7.5.22",
     "tesseract.js": "^7.0.0",
     "tsx": "^4.23.15",
     "yaml": "^2.9.1",

@@ -35,3 +35,30 @@ chunking:
   # Paragraphs are merged until this soft limit is reached.
   target_chars: 1200
   max_chars: 2400
+
+retrieval:
+  # Hybrid retrieval: BM25 lexical + semantic, fused with reciprocal rank fusion (RRF).
+  candidate_depth: 50
+  rrf_k: 60
+  semantic:
+    # auto: local model if installed, otherwise the built-in LSA fallback.
+    # transformers | ollama | lsa | none
+    provider: auto
+    model: all-MiniLM-L6-v2          # or multilingual-e5-small (Hugging Face download)
+    models_dir: ./models             # downloaded by the launcher / `npm run setup-models`
+    ollama_url: http://127.0.0.1:11434
+    ollama_model: nomic-embed-text
+
+answer:
+  # Minimum share of the question's content words that must appear in the best passage(s)
+  # (or a semantic match above the model's threshold) before an answer is attempted.
+  min_lexical_coverage: 0.5
+  max_passages: 6
+
+llm:
+  # Optional generative layer for Ask. "none" = deterministic extractive answers (default).
+  # ollama | openai-compatible. A non-localhost URL additionally requires ALLOW_EXTERNAL_LLM=true.
+  provider: none
+  url: http://127.0.0.1:11434
+  model: llama3.1:8b
+  timeout_seconds: 120

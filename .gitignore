@@ -15,12 +15,14 @@ data/indexes/*
 data/corrections/*
 data/sample-originals/
 data/sample-data/
+data/eval-sample/
 !data/**/.gitkeep
 logs/*
 !logs/.gitkeep
 
-# Private Node.js runtime downloaded by the launchers
+# Private Node.js runtime and local models downloaded by the launchers
 .runtime/
+models/
 
 # Tooling
 coverage/

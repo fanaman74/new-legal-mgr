@@ -31,6 +31,27 @@ const AppYaml = z.object({
     target_chars: z.number().int().positive(),
     max_chars: z.number().int().positive(),
   }),
+  retrieval: z.object({
+    candidate_depth: z.number().int().positive(),
+    rrf_k: z.number().positive(),
+    semantic: z.object({
+      provider: z.enum(["auto", "transformers", "ollama", "lsa", "none"]),
+      model: z.string(),
+      models_dir: z.string(),
+      ollama_url: z.string(),
+      ollama_model: z.string(),
+    }),
+  }),
+  answer: z.object({
+    min_lexical_coverage: z.number().min(0).max(1),
+    max_passages: z.number().int().positive(),
+  }),
+  llm: z.object({
+    provider: z.enum(["none", "ollama", "openai-compatible"]),
+    url: z.string(),
+    model: z.string(),
+    timeout_seconds: z.number().positive(),
+  }),
 });
 
 const DocumentTypesYaml = z.object({
@@ -77,6 +98,19 @@ export interface AppConfig {
   pdf: { minTextCharsPerPage: number; ocrRenderScale: number };
   ocr: { enabled: boolean; langs: string; langPath: string };
   chunking: { targetChars: number; maxChars: number };
+  retrieval: {
+    candidateDepth: number;
+    rrfK: number;
+    semantic: {
+      provider: "auto" | "transformers" | "ollama" | "lsa" | "none";
+      model: string;
+      modelsDir: string;
+      ollamaUrl: string;
+      ollamaModel: string;
+    };
+  };
+  answer: { minLexicalCoverage: number; maxPassages: number };
+  llm: { provider: "none" | "ollama" | "openai-compatible"; url: string; model: string; timeoutSeconds: number; apiKey: string | null };
   documentTypes: DocumentTypeRule[];
   matters: MatterRule[];
 }
@@ -115,6 +149,7 @@ export interface ConfigOverrides {
   auditLog?: string;
   ocrEnabled?: boolean;
   forceReparse?: boolean;
+  semanticProvider?: AppConfig["retrieval"]["semantic"]["provider"];
 }
 
 /**
@@ -159,6 +194,25 @@ export function loadConfig(overrides: ConfigOverrides = {}, configDir = path.joi
       langPath: resolveFromRoot(env.OCR_LANG_PATH || app.ocr.lang_path, REPO_ROOT),
     },
     chunking: { targetChars: app.chunking.target_chars, maxChars: app.chunking.max_chars },
+    retrieval: {
+      candidateDepth: app.retrieval.candidate_depth,
+      rrfK: app.retrieval.rrf_k,
+      semantic: {
+        provider: overrides.semanticProvider ?? (env.SEMANTIC_PROVIDER as AppConfig["retrieval"]["semantic"]["provider"] | undefined) ?? app.retrieval.semantic.provider,
+        model: env.SEMANTIC_MODEL || app.retrieval.semantic.model,
+        modelsDir: resolveFromRoot(env.LEGAL_MODELS_DIR || app.retrieval.semantic.models_dir, REPO_ROOT),
+        ollamaUrl: env.OLLAMA_URL || app.retrieval.semantic.ollama_url,
+        ollamaModel: env.OLLAMA_EMBED_MODEL || app.retrieval.semantic.ollama_model,
+      },
+    },
+    answer: { minLexicalCoverage: app.answer.min_lexical_coverage, maxPassages: app.answer.max_passages },
+    llm: {
+      provider: (env.LLM_PROVIDER as AppConfig["llm"]["provider"] | undefined) || app.llm.provider,
+      url: env.LLM_URL || app.llm.url,
+      model: env.LLM_MODEL || app.llm.model,
+      timeoutSeconds: app.llm.timeout_seconds,
+      apiKey: env.LLM_API_KEY || null,
+    },
     documentTypes: docTypes.types,
     matters: matters.matters,
   };
