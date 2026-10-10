@@ -1,0 +1,51 @@
+# Rule-based, deliberately conservative document-type classification.
+# - filename/path matches give "medium" confidence;
+# - text matches (first page / opening text only) give "low" confidence;
+# - email formats (.msg/.eml) are typed "email" with "high" confidence.
+# When nothing matches, document_type is "unknown". Human corrections override all of this.
+version: 1
+types:
+  - id: official_decision
+    label: Official decision / response
+    path_patterns: ["decision", "reply to complaint", "response to request", "rejection"]
+    text_patterns: ["has decided", "hereby decides", "decision of the appointing authority", "the request is rejected", "the complaint is rejected"]
+  - id: complaint_submission
+    label: Complaint / request / submission
+    path_patterns: ["complaint", "request for assistance", "submission", "article 90", "art 90", "article 24", "art 24", "observations"]
+    text_patterns: ["request for assistance", "under article 24", "complaint under article 90(2)", "i hereby submit", "i respectfully request"]
+  - id: acknowledgement
+    label: Acknowledgement / registration
+    path_patterns: ["acknowledg", "registration", "receipt"]
+    text_patterns: ["acknowledge receipt", "has been registered", "we confirm receipt"]
+  - id: investigation_report
+    label: Investigation report
+    path_patterns: ["investigation", "inquiry report", "fact-finding"]
+    text_patterns: ["investigation report", "findings of the investigation", "administrative inquiry"]
+  - id: audit_report
+    label: Audit / IAS material
+    path_patterns: ["audit", "ias"]
+    text_patterns: ["internal audit service", "audit report", "audit findings"]
+  - id: lawyer_correspondence
+    label: Lawyer correspondence
+    path_patterns: ["counsel", "lawyer", "avocat", "solicitor", "legal representative"]
+    text_patterns: ["on behalf of my client", "acting on behalf of", "my client"]
+  - id: court_submission
+    label: Court submission
+    path_patterns: ["application to the general court", "court", "tribunal", "pleading", "defence", "reply_to_defence"]
+    text_patterns: ["general court", "the applicant claims that the court should", "form of order sought"]
+  - id: termination_material
+    label: Termination material
+    path_patterns: ["termination", "dismissal"]
+    text_patterns: ["termination of your contract", "notice of termination"]
+  - id: annex
+    label: Annex / attachment
+    path_patterns: ["annex", "appendix", "exhibit"]
+    text_patterns: []
+  - id: medical_or_administrative_report
+    label: Medical or administrative report
+    path_patterns: ["medical", "certificate"]
+    text_patterns: ["medical certificate", "unfit for work"]
+  - id: notes
+    label: Notes
+    path_patterns: ["notes"]
+    text_patterns: []

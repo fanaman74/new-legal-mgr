@@ -1,0 +1,23 @@
+# Matters (legal procedures) that evidence can belong to. A document may belong to several.
+# - path_prefixes: a file under one of these folders of data/originals is assigned the matter
+#   with "high" confidence (the folder was chosen by a human);
+# - keywords: matched against filename + opening text, "low" confidence.
+# Edit this file to describe your own corpus. Unmatched documents get matter: [].
+version: 1
+matters:
+  - id: article24
+    label: Article 24 request for assistance
+    path_prefixes: ["article24/", "art24/"]
+    keywords: ["article 24", "request for assistance"]
+  - id: article90
+    label: Article 90 complaint
+    path_prefixes: ["article90/", "art90/"]
+    keywords: ["article 90", "complaint under article 90"]
+  - id: termination
+    label: Contract termination
+    path_prefixes: ["termination/"]
+    keywords: ["termination of your contract", "notice of termination"]
+  - id: audit
+    label: Audit / IAS
+    path_prefixes: ["audit/", "ias/"]
+    keywords: ["internal audit service", "audit report"]

@@ -1,0 +1,46 @@
+{
+  "name": "legal-evidence-poc",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Local-first proof of concept for legal evidence ingestion, retrieval and analysis with strict provenance.",
+  "type": "module",
+  "engines": {
+    "node": ">=20.12"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:unit": "vitest run tests/unit",
+    "test:integration": "vitest run tests/integration",
+    "ingest": "tsx scripts/ingest.ts",
+    "corpus": "tsx scripts/show-corpus.ts",
+    "check-originals": "tsx scripts/check-originals.ts",
+    "correct": "tsx scripts/correct-metadata.ts",
+    "sample-corpus": "tsx scripts/make-sample-corpus.ts"
+  },
+  "dependencies": {
+    "@kenjiuno/msgreader": "^1.28.0",
+    "@napi-rs/canvas": "^1.0.11",
+    "@tesseract.js-data/eng": "^1.0.0",
+    "cfb": "^1.2.2",
+    "commander": "^15.0.0",
+    "jszip": "^3.10.2",
+    "mailparser": "^3.9.38",
+    "mammoth": "^1.13.0",
+    "node-html-parser": "^9.0.4",
+    "pdfjs-dist": "^6.4.299",
+    "tesseract.js": "^7.0.0",
+    "yaml": "^2.9.1",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@types/mailparser": "^3.9.0",
+    "@types/node": "^26.6.5",
+    "@types/pdfkit": "^0.17.6",
+    "docx": "^9.9.0",
+    "pdfkit": "^0.20.2",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.3"
+  }
+}

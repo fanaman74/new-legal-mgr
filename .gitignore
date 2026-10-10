@@ -1,0 +1,26 @@
+# Dependencies
+node_modules/
+
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+
+# Evidence and generated artefacts: never commit
+data/originals/*
+data/extracted/*
+data/canonical/*
+data/attachments/*
+data/indexes/*
+data/corrections/*
+data/sample-originals/
+data/sample-data/
+!data/**/.gitkeep
+logs/*
+!logs/.gitkeep
+
+# Tooling
+coverage/
+*.log
+.DS_Store
+eng.traineddata

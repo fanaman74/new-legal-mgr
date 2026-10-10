@@ -1,0 +1,37 @@
+# Application configuration. Paths are relative to the repository root unless absolute.
+# Environment variables (see .env.example) override the values here.
+version: 1
+
+paths:
+  data_dir: ./data
+  originals_dir: ./data/originals      # READ ONLY. Never written by application code.
+  audit_log: ./logs/audit.jsonl
+
+ingestion:
+  # File extensions considered for ingestion (case-insensitive). Anything else is still
+  # registered (hash + Evidence ID) and logged as "unsupported" so nothing is silently dropped.
+  supported_extensions: [".pdf", ".docx", ".msg", ".eml", ".txt", ".md"]
+  # Hidden/system files that are ignored entirely (logged as SKIPPED in the audit log).
+  ignore_patterns: [".DS_Store", "Thumbs.db", "desktop.ini", "~$*", ".gitkeep"]
+  # Re-parse documents even if an up-to-date canonical record exists.
+  force_reparse: false
+
+pdf:
+  # A page whose embedded text layer has fewer than this many non-whitespace characters
+  # is treated as scanned and sent to OCR (if enabled).
+  min_text_chars_per_page: 25
+  ocr_render_scale: 2.5
+
+ocr:
+  enabled: true
+  langs: eng
+  # Local directory holding <lang>.traineddata.gz. The default is the npm package
+  # @tesseract.js-data/eng, so OCR runs fully offline. For several languages, copy their
+  # traineddata files into one directory and point lang_path at it.
+  lang_path: ./node_modules/@tesseract.js-data/eng/4.0.0_best_int
+
+chunking:
+  # Structural chunks never cross a page boundary (PDF) or a heading boundary (DOCX).
+  # Paragraphs are merged until this soft limit is reached.
+  target_chars: 1200
+  max_chars: 2400
