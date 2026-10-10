@@ -19,6 +19,7 @@ export type AuditAction =
   | "CORRECTION"
   | "MANIFEST_CREATED"
   | "MANIFEST_VERIFIED"
+  | "ORIGINAL_OPENED"
   | "QUERY";
 
 export interface AuditEvent {

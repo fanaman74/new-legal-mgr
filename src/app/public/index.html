@@ -1,0 +1,317 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Legal Evidence Manager</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --panel: #ffffff; --text: #1d2330; --muted: #5d6676; --border: #dde1e7;
+    --accent: #2f5bd3; --accent-text: #ffffff; --ok: #1e7d4f; --warn: #a56200; --fail: #b3261e;
+    --ok-bg: #e5f4ec; --warn-bg: #fdf1dd; --fail-bg: #fbe5e3; --code: #eef0f4;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #14171c; --panel: #1c2027; --text: #e5e8ee; --muted: #9aa3b2; --border: #2e3440;
+      --accent: #7b9cf4; --accent-text: #0e1320; --ok: #6fd3a0; --warn: #f0b45a; --fail: #f28b82;
+      --ok-bg: #173126; --warn-bg: #3a2c12; --fail-bg: #3d1a18; --code: #242a33;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); }
+  header { display: flex; align-items: center; gap: 12px; padding: 14px 24px; background: var(--panel); border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+  header h1 { font-size: 18px; margin: 0; font-weight: 600; }
+  header .sub { color: var(--muted); font-size: 13px; }
+  main { max-width: 1400px; margin: 0 auto; padding: 20px 24px 48px; display: grid; gap: 16px; }
+  section.card { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 16px 18px; }
+  h2 { font-size: 15px; margin: 0 0 10px; }
+  .pill { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; }
+  .pill.ok { background: var(--ok-bg); color: var(--ok); } .pill.warn { background: var(--warn-bg); color: var(--warn); } .pill.fail { background: var(--fail-bg); color: var(--fail); }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  button { font: inherit; border: 1px solid var(--border); background: var(--panel); color: var(--text); padding: 7px 14px; border-radius: 7px; cursor: pointer; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); font-weight: 600; }
+  button:disabled { opacity: .55; cursor: default; }
+  code, .mono { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-size: 13px; }
+  code { background: var(--code); padding: 1px 5px; border-radius: 4px; word-break: break-all; }
+  .muted { color: var(--muted); }
+  ul.checks { list-style: none; padding: 0; margin: 0; display: grid; gap: 6px; }
+  ul.checks li { display: grid; grid-template-columns: 70px 220px 1fr; gap: 10px; align-items: baseline; }
+  ul.checks .fix { grid-column: 3; color: var(--muted); font-size: 13px; }
+  pre.log { background: var(--code); border-radius: 8px; padding: 10px 12px; max-height: 220px; overflow: auto; margin: 10px 0 0; font-size: 12.5px; }
+  .notice { padding: 10px 12px; border-radius: 8px; margin-top: 10px; }
+  .notice.ok { background: var(--ok-bg); color: var(--ok); } .notice.warn { background: var(--warn-bg); color: var(--warn); } .notice.fail { background: var(--fail-bg); color: var(--fail); }
+  .layout { display: grid; grid-template-columns: minmax(0, 1.8fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+  @media (max-width: 1100px) { .layout { grid-template-columns: 1fr; } ul.checks li { grid-template-columns: 60px 1fr; } ul.checks li > :nth-child(3), ul.checks .fix { grid-column: 2; } }
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; font-size: 12.5px; position: sticky; top: 0; background: var(--panel); }
+  tbody tr { cursor: pointer; } tbody tr:hover { background: var(--code); } tbody tr.sel { background: var(--warn-bg); }
+  .tablewrap { max-height: 70vh; overflow: auto; }
+  td.nowrap { white-space: nowrap; }
+  td.file { overflow-wrap: anywhere; min-width: 160px; }
+  input[type=search] { font: inherit; padding: 6px 10px; border: 1px solid var(--border); border-radius: 7px; background: var(--panel); color: var(--text); min-width: 260px; }
+  dl { display: grid; grid-template-columns: 150px 1fr; gap: 4px 12px; margin: 0; font-size: 13.5px; }
+  dt { color: var(--muted); } dd { margin: 0; word-break: break-word; }
+  details.chunk { border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; margin: 6px 0; }
+  details.chunk summary { cursor: pointer; font-size: 13px; }
+  details.chunk pre { white-space: pre-wrap; margin: 8px 0 2px; font-size: 13px; font-family: inherit; }
+  a { color: var(--accent); }
+  .detail-empty { color: var(--muted); padding: 30px 0; text-align: center; }
+  .stats { display: flex; gap: 18px; flex-wrap: wrap; margin-top: 10px; font-size: 13.5px; }
+  .stats b { font-size: 16px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Legal Evidence Manager</h1>
+  <span class="sub">proof of concept · runs locally · originals are read-only</span>
+  <span id="status-pill" class="pill warn">Checking…</span>
+</header>
+<main>
+  <section class="card" id="prereq-card">
+    <div class="row" style="justify-content: space-between;">
+      <h2 style="margin:0">Prerequisites</h2>
+      <button id="btn-recheck">Check again</button>
+    </div>
+    <ul class="checks" id="checks" style="margin-top:10px"></ul>
+  </section>
+
+  <section class="card">
+    <h2>Evidence</h2>
+    <p class="muted" style="margin:0 0 10px">Copy your evidence files (copies, not the master archive) into the evidence folder, then click <b>Import evidence</b>.
+      Folder: <code id="originals-dir">…</code></p>
+    <div class="row">
+      <button id="btn-open-folder">Open evidence folder</button>
+      <button id="btn-ingest" class="primary" title="Read every file in the evidence folder, register it and extract its text with page/section provenance">Import evidence</button>
+      <button id="btn-reparse" title="Re-read every document, e.g. after changing the configuration">Re-import everything</button>
+      <button id="btn-verify" title="Compare every original with its recorded name, size, modification time and SHA-256">Check originals unchanged</button>
+      <button id="btn-baseline" title="Accept the current set of files as the new reference manifest">Update baseline</button>
+    </div>
+    <div id="job"></div>
+    <div id="verify"></div>
+  </section>
+
+  <div class="layout">
+    <section class="card">
+      <div class="row" style="justify-content: space-between; margin-bottom: 8px;">
+        <h2 style="margin:0">Corpus <span id="corpus-count" class="muted"></span></h2>
+        <input type="search" id="filter" placeholder="Filter by ID, name, type, matter, date…" aria-label="Filter corpus">
+      </div>
+      <div class="tablewrap">
+        <table>
+          <thead><tr><th>Evidence ID</th><th>File</th><th>Type</th><th>Date</th><th>Matter</th><th>Pages</th><th>Status</th></tr></thead>
+          <tbody id="corpus"></tbody>
+        </table>
+      </div>
+      <p class="muted" style="font-size:13px;margin:10px 0 0">Search, Ask, Timeline and Compare will be added in the next milestones.</p>
+    </section>
+    <section class="card" id="detail"><div class="detail-empty">Select a document to see its provenance.</div></section>
+  </div>
+</main>
+<script>
+"use strict";
+const H = { "X-Legal-POC": "1", "Content-Type": "application/json" };
+let corpus = [];
+let selected = null;
+
+/** Build DOM safely: strings become text nodes, never HTML. */
+function el(tag, attrs, ...children) {
+  const node = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs || {})) {
+    if (v === null || v === undefined || v === false) continue;
+    if (k === "class") node.className = v;
+    else if (k.startsWith("on")) node.addEventListener(k.slice(2), v);
+    else node.setAttribute(k, v === true ? "" : String(v));
+  }
+  for (const c of children.flat()) if (c !== null && c !== undefined && c !== false) node.append(c instanceof Node ? c : String(c));
+  return node;
+}
+const $ = (id) => document.getElementById(id);
+async function api(path, opts) {
+  const res = await fetch(path, opts);
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
+  return body;
+}
+const label = { ok: "OK", warn: "Warning", fail: "Problem" };
+
+async function loadHealth() {
+  const h = await api("/api/health");
+  $("originals-dir").textContent = h.originals_dir;
+  const pr = h.prerequisites;
+  const pill = $("status-pill");
+  pill.className = `pill ${pr.overall}`;
+  pill.textContent = pr.overall === "ok" ? "Ready" : pr.overall === "warn" ? "Ready, with warnings" : "Cannot run: see prerequisites";
+  $("checks").replaceChildren(...pr.checks.map((c) => el("li", {},
+    el("span", { class: `pill ${c.status}` }, label[c.status]),
+    el("b", {}, c.label),
+    el("span", {}, c.detail),
+    c.fix ? el("span", { class: "fix" }, c.fix) : null)));
+  $("btn-ingest").disabled = $("btn-reparse").disabled = pr.overall === "fail";
+}
+
+async function loadCorpus() {
+  const { records } = await api("/api/corpus");
+  corpus = records;
+  renderCorpus();
+}
+
+function renderCorpus() {
+  const q = $("filter").value.trim().toLowerCase();
+  const rows = corpus.filter((r) => !q || [r.evidence_id, r.filename, r.document_type, r.date, r.matter.join(" "), r.status, r.title].join(" ").toLowerCase().includes(q));
+  $("corpus-count").textContent = `(${rows.length}${rows.length !== corpus.length ? ` of ${corpus.length}` : ""})`;
+  if (!corpus.length) {
+    $("corpus").replaceChildren(el("tr", {}, el("td", { colspan: 7, class: "muted" }, "No evidence imported yet. Add files to the evidence folder and click Import evidence.")));
+    return;
+  }
+  $("corpus").replaceChildren(...rows.map((r) => {
+    const statusClass = r.status === "parsed" ? "ok" : r.status === "failed" ? "fail" : "warn";
+    return el("tr", { class: r.evidence_id === selected ? "sel" : "", onclick: () => showDetail(r.evidence_id) },
+      el("td", { class: "mono nowrap" }, r.evidence_id),
+      el("td", { class: "file" }, r.filename, r.attachment_of.length ? el("div", { class: "muted", style: "font-size:12px" }, `attachment of ${r.attachment_of.join(", ")}`) : null),
+      el("td", {}, r.document_type),
+      el("td", { class: "nowrap" }, r.date ? `${r.date}` : "–", r.date ? el("div", { class: "muted", style: "font-size:12px" }, r.corrected ? "corrected" : `${r.date_confidence} confidence`) : null),
+      el("td", {}, r.matter.join(", ") || "–"),
+      el("td", {}, r.page_count ?? "–"),
+      el("td", {}, el("span", { class: `pill ${statusClass}` }, r.status), r.ocr_pages ? el("div", { class: "muted", style: "font-size:12px" }, `OCR: ${r.ocr_pages} page(s)`) : null));
+  }));
+}
+
+function dlRows(pairs) {
+  return el("dl", {}, pairs.filter(([, v]) => v !== undefined).flatMap(([k, v]) => [el("dt", {}, k), el("dd", {}, v === null || v === "" || (Array.isArray(v) && !v.length) ? "–" : v)]));
+}
+const evidLink = (id) => el("a", { href: "#", onclick: (e) => { e.preventDefault(); showDetail(id); } }, id);
+
+async function showDetail(id) {
+  selected = id;
+  renderCorpus();
+  const { record: r, relationships, chunks } = await api(`/api/evidence/${id}`);
+  const d = r.document, p = r.provenance, s = r.source;
+  const parts = [
+    el("div", { class: "row", style: "justify-content: space-between" },
+      el("h2", { style: "margin:0" }, `${r.evidence_id} · ${s.original_filename}`),
+      el("a", { href: `/api/evidence/${r.evidence_id}/original`, target: "_blank", rel: "noopener" }, "Open original")),
+    el("h2", { style: "margin-top:14px" }, "Document"),
+    dlRows([
+      ["Title", d.title],
+      ["Type", `${d.document_type}${d.document_type_confidence ? ` (${d.document_type_confidence})` : ""}`],
+      ["Type basis", d.document_type_basis],
+      ["Date", d.date ? `${d.date} (${d.date_confidence})` : null],
+      ["Date basis", d.date_basis],
+      ["Matter", d.matter_basis.map((m) => `${m.matter} (${m.confidence}: ${m.basis})`).join("; ") || d.matter.join(", ")],
+      ["Author", d.author.join("; ")],
+      ["Recipients", d.recipients.join("; ")],
+    ]),
+  ];
+  if (r.email) {
+    parts.push(el("h2", { style: "margin-top:14px" }, "Email"), dlRows([
+      ["Format", r.email.format], ["Subject", r.email.subject], ["Sent (UTC)", r.email.sent_at], ["Message-ID", r.email.message_id], ["In reply to", r.email.in_reply_to],
+    ]));
+  }
+  parts.push(el("h2", { style: "margin-top:14px" }, "Source and provenance"), dlRows([
+    ["SHA-256", el("code", {}, s.sha256)],
+    ["Path", `${s.source_root}/${s.relative_path}`],
+    ["Duplicates / aliases", s.alias_paths.map((a) => `${a.source_root}/${a.relative_path}`).join("; ")],
+    ["MIME type", s.mime_type],
+    ["Size", `${s.size_bytes.toLocaleString("en-GB")} bytes`],
+    ["Parser", `${p.parser} · ${p.parser_version}`],
+    ["Status", p.status + (p.error ? `: ${p.error}` : "")],
+    ["Pages", p.page_count],
+    ["OCR pages", p.ocr_pages.join(", ")],
+    ["Warnings", p.warnings.join("; ")],
+    ["Ingested", p.ingestion_timestamp],
+  ]));
+  if (r.attachment_of.length || r.attachments.length) {
+    parts.push(el("h2", { style: "margin-top:14px" }, "Attachments and parents"), el("ul", {},
+      r.attachment_of.map((pid) => el("li", {}, "Attachment of ", evidLink(pid))),
+      r.attachments.map((a) => el("li", {}, `#${a.index + 1} ${a.filename ?? "(unnamed)"} → `, a.evidence_id ? evidLink(a.evidence_id) : el("span", { class: "muted" }, a.note || "not extracted")))));
+  }
+  if (r.corrections_applied.length) {
+    parts.push(el("h2", { style: "margin-top:14px" }, "Human corrections"), el("ul", {}, r.corrections_applied.map((c) => el("li", {}, `${c.field}: machine value ${JSON.stringify(c.machine_value)} overridden (${c.timestamp})`))));
+  }
+  parts.push(el("h2", { style: "margin-top:14px" }, `Chunks (${chunks.length})`),
+    chunks.length ? el("div", {}, chunks.map((c) => el("details", { class: "chunk" },
+      el("summary", {}, el("span", { class: "mono" }, c.chunk_id), " · ", c.page ? `page ${c.page}` : `section ${c.section_id}`, c.heading ? ` · ${c.heading}` : "", c.ocr ? ` · OCR ${c.ocr_confidence}` : ""),
+      el("pre", {}, c.text)))) : el("p", { class: "muted" }, "No extracted text."));
+  if (relationships.length) {
+    parts.push(el("h2", { style: "margin-top:14px" }, "Relationships"), el("ul", {}, relationships.map((x) => el("li", {}, evidLink(x.subject), ` ${x.predicate} `, evidLink(x.object)))));
+  }
+  $("detail").replaceChildren(...parts.filter(Boolean));
+}
+
+function renderJob(job) {
+  if (!job) { $("job").replaceChildren(); return; }
+  const parts = [];
+  if (job.status === "running") parts.push(el("div", { class: "notice warn" }, `Importing… (${job.log.length} file event(s) so far)`));
+  if (job.status === "failed") parts.push(el("div", { class: "notice fail" }, `Import failed: ${job.error}`));
+  if (job.status === "done" && job.summary) {
+    const s = job.summary;
+    parts.push(el("div", { class: "stats" },
+      ...[["new evidence", s.new_evidence], ["parsed", s.parsed], ["partial", s.partial], ["failed", s.failed], ["unsupported", s.unsupported], ["duplicates", s.duplicates], ["unchanged", s.unchanged], ["attachments", s.attachments_extracted]]
+        .map(([k, v]) => el("span", {}, el("b", {}, v), ` ${k}`))));
+    const oc = job.originals_check;
+    if (oc) parts.push(el("div", { class: `notice ${oc.ok ? "ok" : "fail"}` }, oc.ok ? `Originals unchanged by this import: ${oc.files} file(s) verified (name, size, modification time, SHA-256).` : `WARNING: originals changed during the import: ${oc.changes.join("; ")}`));
+    if (s.failed) parts.push(el("div", { class: "notice warn" }, `${s.failed} file(s) could not be parsed. They are listed with status "failed"; select one to see the reason.`));
+    if (s.missing_originals.length) parts.push(el("div", { class: "notice warn" }, `Previously imported paths no longer present (renamed, moved or deleted copies): ${s.missing_originals.join(", ")}`));
+  }
+  parts.push(el("details", { open: job.status === "running" }, el("summary", { class: "muted", style: "cursor:pointer; margin-top:8px" }, "Import log"), el("pre", { class: "log" }, job.log.join("\n") || "…")));
+  $("job").replaceChildren(...parts.filter(Boolean));
+}
+
+async function pollJob() {
+  const { job } = await api("/api/job");
+  renderJob(job);
+  const running = job && job.status === "running";
+  for (const b of ["btn-ingest", "btn-reparse", "btn-verify", "btn-baseline"]) $(b).disabled = running;
+  if (running) setTimeout(pollJob, 700);
+  else { await loadCorpus(); await loadHealth(); }
+}
+
+async function startIngest(force) {
+  $("verify").replaceChildren();
+  try {
+    await api("/api/ingest", { method: "POST", headers: H, body: JSON.stringify({ force }) });
+  } catch (e) { alert(e.message); }
+  pollJob();
+}
+
+async function verify() {
+  try {
+    const r = await api("/api/originals/verify", { method: "POST", headers: H, body: "{}" });
+    if (r.mode === "created") {
+      $("verify").replaceChildren(el("div", { class: "notice ok" }, `Baseline created for ${r.file_count} file(s). Click again later to verify that nothing has changed.`));
+      return;
+    }
+    const d = r.diff;
+    const lines = [...d.modified.map((m) => `MODIFIED ${m.relative_path} (${m.changes.join(", ")})`), ...d.missing.map((m) => `MISSING ${m}`), ...d.added.map((m) => `ADDED ${m}`)];
+    $("verify").replaceChildren(
+      el("div", { class: `notice ${r.ok ? "ok" : "fail"}` }, r.ok
+        ? `Original evidence unchanged since the baseline of ${r.baseline_created_at}: ${d.unchanged.length} file(s) verified.${d.added.length ? ` ${d.added.length} new file(s) added since (not a modification).` : ""}`
+        : `Original evidence differs from the baseline of ${r.baseline_created_at}.`),
+      ...(lines.length ? [el("pre", { class: "log" }, lines.join("\n"))] : []));
+  } catch (e) { $("verify").replaceChildren(el("div", { class: "notice fail" }, e.message)); }
+}
+
+async function updateBaseline() {
+  if (!confirm("Accept the current set of evidence files as the new reference baseline?")) return;
+  try {
+    const r = await api("/api/originals/baseline", { method: "POST", headers: H, body: "{}" });
+    $("verify").replaceChildren(el("div", { class: "notice ok" }, `New baseline recorded for ${r.file_count} file(s).`));
+  } catch (e) { $("verify").replaceChildren(el("div", { class: "notice fail" }, e.message)); }
+}
+
+$("btn-ingest").onclick = () => startIngest(false);
+$("btn-reparse").onclick = () => startIngest(true);
+$("btn-verify").onclick = verify;
+$("btn-baseline").onclick = updateBaseline;
+$("btn-recheck").onclick = loadHealth;
+$("btn-open-folder").onclick = () => api("/api/open-folder", { method: "POST", headers: H, body: "{}" }).catch((e) => alert(e.message));
+$("filter").oninput = renderCorpus;
+
+loadHealth().then(loadCorpus).then(pollJob).catch((e) => {
+  $("status-pill").className = "pill fail";
+  $("status-pill").textContent = `Cannot reach the application: ${e.message}`;
+});
+</script>
+</body>
+</html>
