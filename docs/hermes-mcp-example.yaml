@@ -1,0 +1,50 @@
+# Example Hermes configuration for the legal evidence MCP server.
+#
+# Merge the `mcp_servers` block below into ~/.hermes/config.yaml, then restart Hermes
+# (or reload its MCP servers). Replace /path/to/legal-evidence-poc with the folder where this
+# project lives. Do not put credentials or private evidence paths in Git.
+#
+# The server is started by Hermes as a local subprocess (stdio). It only reads the indexed
+# corpus: there is no tool that writes, renames or deletes evidence. Ingest/import evidence
+# with the app (double-click launcher) first; the MCP server serves what has been imported.
+#
+# Hermes exposes the tools with a server prefix (e.g. mcp_legal_evidence_legal_search).
+# Tool filters below use the ORIGINAL MCP tool names.
+
+mcp_servers:
+  legal_evidence:
+    # macOS / Linux. If you use the launcher's private Node.js copy, point `command` at
+    # /path/to/legal-evidence-poc/.runtime/node/bin/node instead.
+    command: "node"
+    args:
+      - "/path/to/legal-evidence-poc/node_modules/tsx/dist/cli.mjs"
+      - "/path/to/legal-evidence-poc/scripts/mcp.ts"
+    # Windows (use forward slashes or escaped backslashes):
+    # command: "C:/path/to/legal-evidence-poc/.runtime/node/node.exe"
+    # args: ["C:/path/to/legal-evidence-poc/node_modules/tsx/dist/cli.mjs", "C:/path/to/legal-evidence-poc/scripts/mcp.ts"]
+    env:
+      # Optional: use a different data directory (e.g. the fictional sample corpus).
+      # LEGAL_DATA_DIR: "/path/to/legal-evidence-poc/data/sample-data"
+      ALLOW_EXTERNAL_LLM: "false"
+    timeout: 180          # chronology/comparison on a large corpus can take a while
+    connect_timeout: 60   # first start loads the local search model
+    enabled: true
+    tools:
+      include:
+        - legal_search
+        - legal_get_document
+        - legal_get_passage
+        - legal_ask
+        - legal_build_chronology
+        - legal_compare_positions
+        - legal_find_unaddressed_evidence
+        - legal_verify_citation
+      resources: false
+      prompts: false
+
+# Suggested instruction for Hermes (system prompt or memory):
+#   When answering questions about the legal evidence, use the legal_evidence tools only.
+#   Cite every factual statement as [EVID-NNNNNN, p.N] (or section/chunk for documents without
+#   pages) and check each citation with legal_verify_citation before giving a final answer.
+#   If the tools do not return sufficient evidence, say:
+#   "Insufficient evidence found in the indexed corpus."
